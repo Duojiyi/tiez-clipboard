@@ -295,9 +295,11 @@ const SettingsFooter = ({
                                     setTimeout(() => setUpdateStatus(''), 3000);
                                 }
                             } catch (err) {
+                                // 把错误详情显示出来，便于诊断（便携版无 devtools）
+                                const detail = (err instanceof Error ? err.message : String(err)) || 'unknown';
                                 console.error('Update check failed:', err);
-                                setUpdateStatus(t('checking_failed'));
-                                setTimeout(() => setUpdateStatus(''), 3000);
+                                setUpdateStatus(`${t('checking_failed')}: ${detail.slice(0, 120)}`);
+                                setTimeout(() => setUpdateStatus(''), 8000);
                             }
                         }}
                         disabled={!!updateStatus}

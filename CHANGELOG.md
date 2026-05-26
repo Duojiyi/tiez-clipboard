@@ -4,6 +4,12 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.3.7] - 2026-05-27
+
+### 改进
+
+- **检查更新失败**时按钮上会显示错误详情（前 120 字符），便于无 devtools 的便携版/release 版定位问题。错误提示自动 8 秒后清除。
+
 ## [0.3.6] - 2026-05-26
 
 ### 变更
@@ -50,5 +56,6 @@
 - README 调整：更新仓库链接指向本 fork，移除上游的赞助和社区入口，新增 fork 与协议合规说明。
 - 补充 `vitest` 开发依赖以让 `tsc` 顺利通过对仓库内 `*.test.ts` 文件的类型检查。
 
+[0.3.7]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.7
 [0.3.6]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.6
 [0.3.5]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.5
