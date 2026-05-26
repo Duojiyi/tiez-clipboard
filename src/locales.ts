@@ -12,7 +12,7 @@ export const translations = {
 
         // Header
         settings: "设置",
-        app_name: "TieZ",
+        app_name: "Magpie",
         clear_history: "清空历史",
         hide: "隐藏",
         scroll_to_top: "回到顶部",
@@ -514,7 +514,7 @@ export const translations = {
 
         // Header
         settings: "Settings",
-        app_name: "TieZ",
+        app_name: "Magpie",
         clear_history: "Clear History",
         hide: "Hide",
         scroll_to_top: "Back to top",
@@ -1020,7 +1020,7 @@ export const translations = {
 
         // Header
         settings: "設定",
-        app_name: "TieZ",
+        app_name: "Magpie",
         clear_history: "清空歷史",
         hide: "隱藏",
         scroll_to_top: "回到頂部",

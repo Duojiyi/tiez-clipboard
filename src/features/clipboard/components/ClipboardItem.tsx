@@ -1524,9 +1524,9 @@ const ClipboardItem = ({
                 if (target.closest('a')) {
                     return;
                 }
-                // e.preventDefault() stops macOS from transferring key-window focus to TieZ
+                // e.preventDefault() stops macOS from transferring key-window focus to Magpie
                 // when the user clicks on a clipboard item, including pinned mode.
-                // Without this, the first click activates TieZ and the original input
+                // Without this, the first click activates Magpie and the original input
                 // target loses focus before we dispatch the paste keystroke.
                 e.preventDefault();
                 void hideCompactPreview();

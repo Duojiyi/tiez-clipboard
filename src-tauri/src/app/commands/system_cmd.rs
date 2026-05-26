@@ -74,9 +74,13 @@ pub fn toggle_autostart(enabled: bool) -> AppResult<()> {
     let cmd = format!("\"{}\" --minimized", app_path);
 
     if enabled {
-        key.set_value("TieZ", &cmd)
+        key.set_value("Magpie", &cmd)
             .map_err(|e| AppError::Internal(e.to_string()))?;
+        // 旧名称的注册表条目可能仍存在，写新名后顺手清理避免重复触发
+        let _ = key.delete_value("TieZ");
+        let _ = key.delete_value("tie-z");
     } else {
+        let _ = key.delete_value("Magpie");
         let _ = key.delete_value("TieZ");
         let _ = key.delete_value("tie-z");
     }
@@ -91,7 +95,9 @@ pub fn is_autostart_enabled() -> AppResult<bool> {
     let key = hkcu
         .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    Ok(key.get_value::<String, _>("TieZ").is_ok() || key.get_value::<String, _>("tie-z").is_ok())
+    Ok(key.get_value::<String, _>("Magpie").is_ok()
+        || key.get_value::<String, _>("TieZ").is_ok()
+        || key.get_value::<String, _>("tie-z").is_ok())
 }
 
 #[tauri::command]

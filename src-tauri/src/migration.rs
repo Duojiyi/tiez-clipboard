@@ -302,3 +302,89 @@ pub fn cleanup_old_install_folder(custom_path: Option<PathBuf>) {
         }
     }
 }
+
+/// v0.4.0 Rename Migration: com.tiez -> app.magpie
+///
+/// 0.4.0 版本将 Tauri identifier 从 `com.tiez` 改为 `app.magpie`，因此默认数据目录
+/// `%APPDATA%\com.tiez` 变成了 `%APPDATA%\app.magpie`。该迁移函数会在首次启动新版本时
+/// 把旧目录的内容自动复制到新目录，避免用户感觉数据丢失。
+///
+/// 行为说明：
+/// - 仅在 `default_app_dir` (新目录) 不存在或为空时执行复制；不会覆盖用户在新目录上
+///   已经累积的新数据。
+/// - 完成后写一个 `migration_v040.done` 标记，避免重复执行。
+/// - 旧目录 `com.tiez` 不删除，作为安全网保留——若新版本出问题用户可以重装老版本继续用。
+///   等用户在新版本上确认无误后，可以手动清理。
+pub fn perform_migration_v040(default_app_dir: &PathBuf) {
+    let marker = default_app_dir.join("migration_v040.done");
+    if marker.exists() {
+        return;
+    }
+
+    // 计算 com.tiez 旧目录候选路径（与 Tauri app_data_dir() 行为对齐：Roaming 优先）
+    let mut old_dirs: Vec<PathBuf> = Vec::new();
+    if let Ok(roaming) = std::env::var("APPDATA") {
+        old_dirs.push(PathBuf::from(&roaming).join("com.tiez"));
+    }
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        old_dirs.push(PathBuf::from(&local).join("com.tiez"));
+    }
+    if let Some(parent) = default_app_dir.parent() {
+        old_dirs.push(parent.join("com.tiez"));
+    }
+
+    let old_dir = match old_dirs.iter().find(|p| p.exists() && p.is_dir()) {
+        Some(p) => p.clone(),
+        None => {
+            // 没有旧数据，写 marker 防止以后反复扫
+            let _ = std::fs::create_dir_all(default_app_dir);
+            let _ = std::fs::write(&marker, b"no-old-data");
+            return;
+        }
+    };
+
+    // 检查新目录是否已经有内容（避免覆盖用户在 0.4.0 创建的新数据）
+    let new_db = default_app_dir.join("clipboard.db");
+    if new_db.exists() {
+        if let Ok(meta) = std::fs::metadata(&new_db) {
+            if meta.len() > 50_000 {
+                println!(
+                    ">>> [MIGRATION v040] new data dir already populated, skip copy"
+                );
+                let _ = std::fs::write(&marker, b"new-already-populated");
+                return;
+            }
+        }
+    }
+
+    println!(
+        ">>> [MIGRATION v040] copying data: {:?} -> {:?}",
+        old_dir, default_app_dir
+    );
+    let _ = std::fs::create_dir_all(default_app_dir);
+    if let Err(e) = copy_dir_contents(&old_dir, default_app_dir) {
+        println!(">>> [MIGRATION v040] copy failed: {}", e);
+        return;
+    }
+
+    let _ = std::fs::write(&marker, b"migrated-from-com.tiez");
+    println!(">>> [MIGRATION v040] migration complete");
+}
+
+/// 递归拷贝目录内容（不删除源），跳过已存在的同名文件
+fn copy_dir_contents(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let from = entry.path();
+        let name = entry.file_name();
+        let to = dst.join(&name);
+
+        if from.is_dir() {
+            std::fs::create_dir_all(&to)?;
+            copy_dir_contents(&from, &to)?;
+        } else if !to.exists() {
+            std::fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
+}

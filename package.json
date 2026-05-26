@@ -1,7 +1,7 @@
 {
-  "name": "tiez-app",
+  "name": "magpie",
   "private": true,
-  "version": "0.3.8",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,6 +19,8 @@
     "release:all": "npm run release:arm && npm run release:intel"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
@@ -41,9 +43,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "@tauri-apps/api": "^2.10.1",
-    "@tauri-apps/cli": "^2.10.1",
-    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/cli": "^2.11.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/react-select": "^5.0.0",

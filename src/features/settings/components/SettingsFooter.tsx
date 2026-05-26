@@ -228,7 +228,7 @@ const SettingsFooter = ({
                         marginBottom: '0'
                     }}
                     onClick={() => {
-                        openUrl('https://github.com/Duojiyi/tiez-clipboard/issues');
+                        openUrl('https://github.com/Duojiyi/magpie/issues');
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -280,7 +280,7 @@ const SettingsFooter = ({
                     justifyContent: 'center',
                     gap: '8px'
                 }}>
-                    <span>TieZ {appVersion ? `v${appVersion}` : "v0.2.0"}</span>
+                    <span>Magpie {appVersion ? `v${appVersion}` : "v0.2.0"}</span>
                     <button
                         onClick={async () => {
                             if (updateStatus) return;
@@ -337,7 +337,7 @@ const SettingsFooter = ({
                     flexWrap: 'wrap'
                 }}>
                     <button
-                        onClick={() => openUrl('https://github.com/Duojiyi/tiez-clipboard/releases/latest')}
+                        onClick={() => openUrl('https://github.com/Duojiyi/magpie/releases/latest')}
                         style={{
                             fontSize: '11px',
                             color: 'var(--accent-color)',
@@ -355,7 +355,7 @@ const SettingsFooter = ({
                         {t('official_website')}
                     </button>
                     <button
-                        onClick={() => openUrl('https://github.com/Duojiyi/tiez-clipboard')}
+                        onClick={() => openUrl('https://github.com/Duojiyi/magpie')}
                         style={{
                             fontSize: '11px',
                             color: 'var(--accent-color)',

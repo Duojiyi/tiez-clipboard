@@ -1,6 +1,6 @@
 # 打包便携版（Windows）。
-# 前置条件：完成一次 `npm run tauri:build`，src-tauri\target\release\tiez-app.exe 存在。
-# 产物：artifacts\portable\TieZ_<version>_x64_portable.zip
+# 前置条件：完成一次 `npm run tauri:build`，src-tauri\target\release\magpie.exe 存在。
+# 产物：artifacts\portable\Magpie_<version>_x64_portable.zip
 #
 # Tauri 中"便携模式"由运行时检测决定：当 exe 同目录存在 data 文件夹时，
 # 应用会把所有数据存到 data 内而非 AppData。本脚本据此打包。
@@ -13,21 +13,21 @@ Set-Location $repoRoot
 $pkg = Get-Content (Join-Path $repoRoot 'package.json') -Raw | ConvertFrom-Json
 $version = $pkg.version
 
-$exePath = Join-Path $repoRoot 'src-tauri\target\release\tiez-app.exe'
+$exePath = Join-Path $repoRoot 'src-tauri\target\release\magpie.exe'
 if (-not (Test-Path $exePath)) {
-    throw "tiez-app.exe not found at $exePath. Run 'npm run tauri:build' first."
+    throw "magpie.exe not found at $exePath. Run 'npm run tauri:build' first."
 }
 
 $outRoot = Join-Path $repoRoot 'artifacts\portable'
-$stage   = Join-Path $outRoot "TieZ_${version}_x64_portable"
+$stage   = Join-Path $outRoot "Magpie_${version}_x64_portable"
 $zipPath = "$stage.zip"
 
 Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
 Remove-Item -Force $zipPath -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 
-# 1. 复制 exe，并改名为 TieZ.exe 让用户更直观
-Copy-Item $exePath (Join-Path $stage 'TieZ.exe')
+# 1. 复制 exe，并改名为 Magpie.exe 让用户更直观
+Copy-Item $exePath (Join-Path $stage 'Magpie.exe')
 
 # 2. 创建 data 目录（触发 Tauri 便携模式检测）
 New-Item -ItemType Directory -Path (Join-Path $stage 'data') -Force | Out-Null
@@ -41,9 +41,9 @@ Copy-Item (Join-Path $repoRoot 'CHANGELOG.md')       (Join-Path $stage 'CHANGELO
 
 # 4. 写一份便携版使用说明
 $portableReadme = @"
-# TieZ Portable 便携版
+# Magpie Portable 便携版
 
-直接双击 ``TieZ.exe`` 即可启动。
+直接双击 ``Magpie.exe`` 即可启动。
 
 数据存储在与 exe 同目录的 ``data\`` 文件夹中，包括：
 - 剪贴板历史数据库
@@ -55,10 +55,10 @@ $portableReadme = @"
 ## 注意事项
 
 - 请勿将便携版放在系统受保护目录（如 ``C:\Program Files``），否则数据写入会被拒绝。
-- 如需升级版本，覆盖 ``TieZ.exe`` 即可，``data\`` 目录会被保留。
+- 如需升级版本，覆盖 ``Magpie.exe`` 即可，``data\`` 目录会被保留。
 - 卸载时直接删除整个目录即可，不会在系统注册表或 AppData 留下残留。
 
-来源：https://github.com/Duojiyi/tiez-clipboard
+来源：https://github.com/Duojiyi/magpie
 "@
 
 Set-Content -Path (Join-Path $stage 'README_PORTABLE.md') -Value $portableReadme -Encoding utf8

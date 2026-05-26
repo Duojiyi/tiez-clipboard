@@ -348,7 +348,7 @@ impl EmojiDropTarget {
     }
 
     fn ensure_temp_dir() -> Option<PathBuf> {
-        let dir = std::env::temp_dir().join("TieZ_DragDrop");
+        let dir = std::env::temp_dir().join("Magpie_DragDrop");
         if std::fs::create_dir_all(&dir).is_err() {
             return None;
         }

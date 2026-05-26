@@ -3393,7 +3393,7 @@ fn check_and_create_emoji_sync_op(app: &AppHandle) -> AppResult<Option<CloudSync
         html_content: None,
         content_blob_hash: None,
         html_blob_hash: None,
-        source_app: "TieZ".to_string(),
+        source_app: "Magpie".to_string(),
         timestamp: now_ms(),
         preview: "⭐ Emoji Sync".to_string(),
         is_pinned: false,

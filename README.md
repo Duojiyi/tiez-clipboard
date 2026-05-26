@@ -6,22 +6,26 @@
 ---
 
 <div align="center">
-  <img src="docs/images/logo.png" alt="TieZ Hero Logo" width="300" />
+  <img src="docs/images/logo.png" alt="Magpie Hero Logo" width="300" />
 
   ### **STAY FAST. STAY SYNCED.**
 
   | VERSION | LICENSE | PLATFORM |
   | :--- | :--- | :--- |
-  | [![Version](https://img.shields.io/github/v/release/Duojiyi/tiez-clipboard?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/Duojiyi/tiez-clipboard/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS-f44336?style=for-the-badge)](https://github.com/Duojiyi/tiez-clipboard/releases) |
+  | [![Version](https://img.shields.io/github/v/release/Duojiyi/magpie?label=VERSION&style=for-the-badge&color=2196F3)](https://github.com/Duojiyi/magpie/releases) | [![License](https://img.shields.io/badge/LICENSE-GPL--3.0-FF9800?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0) | [![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS-f44336?style=for-the-badge)](https://github.com/Duojiyi/magpie/releases) |
 
   [English](./README.md) | [简体中文](./README.zh-CN.md)
 </div>
 
 ---
 
-## About this fork
+## About Magpie
 
-This repository is a fork of [`jimuzhe/tiez-clipboard`](https://github.com/jimuzhe/tiez-clipboard), redistributed under the GPL-3.0 license with selected community fixes merged in. See [CHANGELOG](./CHANGELOG.md) for details.
+**Magpie** is a local-first, privacy-respecting clipboard manager for Windows.
+
+This repository is based on [`jimuzhe/tiez-clipboard`](https://github.com/jimuzhe/tiez-clipboard) under the GPL-3.0 license, and has been independently maintained as **Magpie** since v0.4.0. It includes upstream-pending bug fixes, privacy hardening, and UX improvements. See [CHANGELOG](./CHANGELOG.md) for details.
+
+> The magpie is folklorically associated with collecting shiny things — a fitting metaphor for a clipboard manager that quietly keeps the bits and pieces you'll want later.
 
 ---
 
@@ -41,7 +45,7 @@ This repository is a fork of [`jimuzhe/tiez-clipboard`](https://github.com/jimuz
 
 ---
 
-## Why TieZ?
+## Why Magpie
 
 | Performance | Practicality | Privacy | Sync |
 | :--- | :--- | :--- | :--- |
@@ -80,9 +84,30 @@ This repository is a fork of [`jimuzhe/tiez-clipboard`](https://github.com/jimuz
 
 | Platform | Requirement | Output |
 | :--- | :--- | :--- |
-| **Windows** | Windows 10/11 (x64) | `.exe` / `.msi` |
+| **Windows** | Windows 10/11 (x64) | `.exe` / `.msi` / `.zip` (Portable) |
 
-[**Download the Latest Release →**](https://github.com/Duojiyi/tiez-clipboard/releases)
+[**Download the Latest Release →**](https://github.com/Duojiyi/magpie/releases)
+
+---
+
+## Known Limitations
+
+### Win+V cannot be used as the main hotkey
+
+`Win+V` is reserved by Windows for the built-in Clipboard History feature. Selecting `Win+V` in **Settings → Main Hotkey** will show "hotkey unavailable".
+
+**Workaround**: pick `Alt+V`, `Ctrl+Shift+V`, `` Alt+` `` or any other combination — the experience is otherwise identical.
+
+A proper fix is scheduled for v0.4.1: when `Win+V` is chosen, Magpie will offer to take over the hotkey via the `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\DisabledHotkeys` registry value, with a clear opt-in switch in the settings panel. See [v0.4.1 plan](./docs/v0.4.1-plan.md) for details.
+
+---
+
+## Upgrading from TieZ
+
+If you previously used `jimuzhe/tiez-clipboard` or this repository under the `TieZ` name, installing Magpie v0.4.0 will automatically migrate your data on first launch:
+- Old data folder `%APPDATA%\com.tiez\` is copied into the new folder `%APPDATA%\app.magpie\`
+- The old folder is kept as a safety net; you may delete it manually once you've confirmed the new build works for you
+- The autostart registry entry is migrated from `TieZ` to `Magpie`; old entries are cleaned up
 
 ---
 
@@ -91,5 +116,5 @@ This repository is a fork of [`jimuzhe/tiez-clipboard`](https://github.com/jimuz
 This project is licensed under the [GNU GPL-3.0](./LICENSE).
 
 - All original copyright belongs to the authors and contributors of **jimuzhe/tiez-clipboard**.
-- This repository is a redistribution. As required by GPL-3.0 section 5, the original copyright notice, license text, and change descriptions are preserved.
+- This repository is a derivative work redistributed under GPL-3.0. As required by section 5, the original copyright notice, license text, and change descriptions are preserved.
 - Any further redistribution based on this repository must remain under GPL-3.0 with full corresponding source code.

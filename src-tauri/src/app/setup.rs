@@ -57,14 +57,14 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Logger Initialization
     crate::logger::init(app_dir.join("tiez.log"));
-    info!(">>> [STARTUP] TieZ starting up...");
+    info!(">>> [STARTUP] Magpie starting up...");
 
     // 3. Database Initialization
     let db_path = app_dir.join("clipboard.db");
     let db_path_str = db_path.to_string_lossy();
     let conn = database::init_db(&db_path_str).map_err(|e| {
         let err_msg = format!("数据库初始化失败: {}", e);
-        WindowExt::show_error_box("TieZ 启动错误", &err_msg);
+        WindowExt::show_error_box("Magpie 启动错误", &err_msg);
         e
     })?;
     let conn_arc = std::sync::Arc::new(std::sync::Mutex::new(conn));
@@ -114,6 +114,7 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
 
     // Perform migration if needed
     crate::migration::perform_migration_v028(&default_app_dir);
+    crate::migration::perform_migration_v040(&default_app_dir);
 
     // Cleanup temp files
     std::thread::spawn(|| {
@@ -121,7 +122,7 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
         if let Ok(entries) = std::fs::read_dir(&temp_dir) {
             for entry in entries.flatten() {
                 if let Ok(name) = entry.file_name().into_string() {
-                    if name.starts_with("TieZ_Clip_") {
+                    if name.starts_with("TieZ_Clip_") || name.starts_with("Magpie_Clip_") {
                         let _ = std::fs::remove_file(entry.path());
                     }
                 }
@@ -1004,7 +1005,7 @@ fn setup_tray(app: &App, hide_tray: bool) {
 
     let tray = TrayIconBuilder::with_id("main_tray")
         .icon(icon)
-        .tooltip("TieZ")
+        .tooltip("Magpie")
         .show_menu_on_left_click(false)
         .menu(&menu)
         .on_menu_event(|app, event| {

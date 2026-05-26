@@ -53,7 +53,7 @@ pub async fn open_content(
 
     let app_path = get_app_path_for_content_type(&state, &content_type)?;
     let mut temp_path = std::env::temp_dir();
-    let filename = format!("TieZ_Clip_{}", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let filename = format!("Magpie_Clip_{}", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
     let mut use_direct_path = false;
 
     // Handle links/URLs

@@ -146,7 +146,7 @@ pub async fn check_ai_connectivity(
     let request = client
         .post(&api_url)
         .header("Authorization", format!("Bearer {}", api_key))
-        .header("X-Title", "TieZ Clipboard");
+        .header("X-Title", "Magpie Clipboard");
 
     let response = apply_optional_http_referer(request)
         .json(&request_body)
@@ -371,7 +371,7 @@ pub async fn call_ai(
     let request = client
         .post(&api_url)
         .header("Authorization", format!("Bearer {}", api_key))
-        .header("X-Title", "TieZ Clipboard");
+        .header("X-Title", "Magpie Clipboard");
 
     let response = apply_optional_http_referer(request)
         .json(&request_body)
