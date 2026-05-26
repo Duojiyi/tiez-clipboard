@@ -18,6 +18,8 @@ signer.key.pub
 .tauri/
 src-tauri/signer.key
 src-tauri/signer.key.pub
+tauri-updater.key
+tauri-updater.key.pub
 
 # Local builds
 *.exe
@@ -34,10 +36,12 @@ src-tauri/signer.key.pub
 .DS_Store
 Thumbs.db
 .vscode/
+.claude/
 docs/CLOUD-SYNC-IMPLEMENTATION.md
 
 # Junk / Logs
 artifacts/
+release_notes.md
 conflicts.txt
 git_graph.txt
 git_log_out.txt
