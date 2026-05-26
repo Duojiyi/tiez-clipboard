@@ -9,6 +9,7 @@ dist/
 
 # Tauri / Rust build outputs
 src-tauri/target/
+src-tauri/gen/
 target-codex-*/
 
 # Tauri signer keys (PRIVATE)
