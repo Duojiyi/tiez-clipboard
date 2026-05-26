@@ -145,7 +145,18 @@ const ThemeStorePanel = ({
 
       {/* Scrollable content */}
       <div className="theme-store-content">
-        {store.loading && store.themes.length === 0 ? (
+        {store.error === "theme_store_not_configured" ? (
+          <div className="theme-store-empty" style={{ padding: "40px 16px", textAlign: "center", lineHeight: 1.7 }}>
+            <div style={{ fontSize: "14px", marginBottom: "8px", fontWeight: 600 }}>
+              {language === "zh" || language === "tw" ? "主题商店暂未启用" : "Theme Store Unavailable"}
+            </div>
+            <div style={{ fontSize: "12px", opacity: 0.7 }}>
+              {language === "zh" || language === "tw"
+                ? "本仓库为 fork 版本，未配置主题商店服务端。"
+                : "This is a fork build without a theme store backend configured."}
+            </div>
+          </div>
+        ) : store.loading && store.themes.length === 0 ? (
           <div className="theme-store-loading">{t("theme_store_loading")}</div>
         ) : store.themes.length === 0 ? (
           <div className="theme-store-empty">{t("theme_store_empty")}</div>

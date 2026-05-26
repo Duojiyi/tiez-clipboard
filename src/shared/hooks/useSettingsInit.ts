@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { DEFAULT_THEME, normalizeThemeId, isStoreTheme } from "../config/themes";
@@ -15,6 +15,9 @@ interface UseSettingsInitOptions {
   setLanguage: (val: Locale) => void;
 }
 
+// 主题商店是否启用：未配置 VITE_API_BASE_URL 时视为禁用，避免应用启动卡在 store-theme 拉取失败
+const themeStoreEnabled = Boolean(import.meta.env.VITE_API_BASE_URL);
+
 export const useSettingsInit = ({
   setAppSettings,
   setHotkey,
@@ -24,7 +27,6 @@ export const useSettingsInit = ({
   setLanguage
 }: UseSettingsInitOptions) => {
   const [settings, setSettings] = useState<Record<string, string> | null>(null);
-  const settingsEffectCount = useRef(0);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -32,33 +34,28 @@ export const useSettingsInit = ({
     let disposed = false;
 
     const loadSettings = () => {
-      settingsEffectCount.current++;
-      console.log(`[THEME DEBUG] Settings useEffect run #${settingsEffectCount.current}`);
-
       invoke<Record<string, string>>("get_settings")
         .then((result) => {
           if (disposed) return;
 
-          console.log(
-            `[THEME DEBUG] get_settings response (run #${settingsEffectCount.current}):`,
-            result
-          );
-          console.log("[THEME DEBUG] app.color_mode from DB:", result["app.color_mode"]);
-
           setAppSettings(result);
           if (result["app.hotkey"]) setHotkey(result["app.hotkey"]);
 
-          const loadedTheme = normalizeThemeId(result["app.theme"] || DEFAULT_THEME);
+          let loadedTheme = normalizeThemeId(result["app.theme"] || DEFAULT_THEME);
           const loadedColorMode = result["app.color_mode"] || "system";
-          console.log("[THEME DEBUG] loadedColorMode:", loadedColorMode);
 
-          // If store theme, inject cached CSS before applying class
-          if (isStoreTheme(loadedTheme)) {
+          // 用户当前主题是商店主题，但商店未启用 → 静默回退到默认主题
+          if (isStoreTheme(loadedTheme) && !themeStoreEnabled) {
+            loadedTheme = DEFAULT_THEME;
+            invoke("set_theme", { theme: DEFAULT_THEME }).catch(() => {});
+            // 持久化回退结果到数据库，避免每次启动都重复 fallback
+            invoke("save_setting", { key: "app.theme", value: DEFAULT_THEME }).catch(() => {});
+          } else if (isStoreTheme(loadedTheme)) {
             const cached = localStorage.getItem(`tiez_store_css_${loadedTheme}`);
             if (cached) {
               injectStoreThemeCSS(loadedTheme, cached);
             }
-            // Re-fetch in background to update cache
+            // 后台刷新 CSS 缓存（启用商店时才尝试）
             fetchAndCacheStoreTheme(loadedTheme).then((css) => {
               if (css) injectStoreThemeCSS(loadedTheme, css);
             }).catch(() => {});

@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { check, Update } from "@tauri-apps/plugin-updater";
+import { invoke } from "@tauri-apps/api/core";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { isTauriRuntime } from "../lib/tauriRuntime";
 
 export type UpdateStatus = "idle" | "checking" | "downloading" | "ready" | "error";
+
+// 启动后多久触发首次自动检查更新（毫秒）
+const STARTUP_CHECK_DELAY_MS = 5000;
 
 export const useAutoUpdate = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,9 +23,8 @@ export const useAutoUpdate = () => {
     try {
       setStatus("checking");
       
-      // Use the native check() which handles RID allocation internally
       const update = await check({
-        proxy: undefined, // Or configure if needed
+        proxy: undefined,
         headers: { "Cache-Control": "no-cache" },
         timeout: 10000
       });
@@ -53,15 +56,13 @@ export const useAutoUpdate = () => {
       setStatus("downloading");
       setDownloadProgress(0);
 
-      // 4. Use the native plugin logic to download and install
       await updateObj.downloadAndInstall((event) => {
         switch (event.event) {
           case "Started":
             console.log("[Update] Download started");
             break;
           case "Progress":
-            // Calculate progress based on bytes if available, or incremental simulation
-            setDownloadProgress((prev) => Math.min(prev + 5, 99)); 
+            setDownloadProgress((prev) => Math.min(prev + 5, 99));
             break;
           case "Finished":
             console.log("[Update] Download finished");
@@ -88,9 +89,30 @@ export const useAutoUpdate = () => {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      checkUpdate();
-    }, 5000);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    // 读取设置：默认开启启动检查（与历史行为一致）
+    const scheduleStartupCheck = async () => {
+      if (!isTauriRuntime()) return;
+
+      try {
+        const settings = await invoke<Record<string, string>>("get_settings");
+        if (cancelled) return;
+
+        // app.check_update_on_startup === "false" 时关闭，其它（"true" / undefined）都视为开启
+        const enabled = settings["app.check_update_on_startup"] !== "false";
+        if (!enabled) return;
+      } catch {
+        // 读不到设置时按历史行为继续检查
+      }
+
+      timer = setTimeout(() => {
+        checkUpdate();
+      }, STARTUP_CHECK_DELAY_MS);
+    };
+
+    scheduleStartupCheck();
 
     const setupListener = async () => {
       if (isTauriRuntime()) {
@@ -106,7 +128,8 @@ export const useAutoUpdate = () => {
     setupListener().then(fn => { unlisten = fn; });
     
     return () => {
-      clearTimeout(timer);
+      cancelled = true;
+      if (timer) clearTimeout(timer);
       if (unlisten) unlisten();
     };
   }, [checkUpdate]);

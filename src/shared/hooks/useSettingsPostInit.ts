@@ -66,6 +66,7 @@ interface UseSettingsPostInitOptions {
   setHideTrayIcon: (val: boolean) => void;
   setHideDockIcon: (val: boolean) => void;
   setEdgeDocking: (val: boolean) => void;
+  setCheckUpdateOnStartup: (val: boolean) => void;
   setShowSearchBox: (val: boolean) => void;
   setScrollTopButtonEnabled: (val: boolean) => void;
   setArrowKeySelection: (val: boolean) => void;
@@ -152,6 +153,7 @@ export const useSettingsPostInit = ({
   setHideTrayIcon,
   setHideDockIcon,
   setEdgeDocking,
+  setCheckUpdateOnStartup,
   setShowSearchBox,
   setScrollTopButtonEnabled,
   setArrowKeySelection,
@@ -330,6 +332,7 @@ export const useSettingsPostInit = ({
     setHideDockIcon(settings["app.hide_dock_icon"] === "true");
     const edgeDockingEnabled = settings["app.edge_docking"] === "true";
     setEdgeDocking(edgeDockingEnabled);
+    setCheckUpdateOnStartup(settings["app.check_update_on_startup"] !== "false");
 
     if (settings["app.show_search_box"] === "false") setShowSearchBox(false);
     setScrollTopButtonEnabled(settings["app.show_scroll_top_button"] !== "false");
@@ -495,6 +498,7 @@ export const useSettingsPostInit = ({
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
+    setCheckUpdateOnStartup,
     setShowSearchBox,
     setScrollTopButtonEnabled,
     setArrowKeySelection,

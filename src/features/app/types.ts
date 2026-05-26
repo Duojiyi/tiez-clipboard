@@ -175,6 +175,8 @@ export interface AppState {
   setHideDockIcon: StateSetter<boolean>;
   edgeDocking: boolean;
   setEdgeDocking: StateSetter<boolean>;
+  checkUpdateOnStartup: boolean;
+  setCheckUpdateOnStartup: StateSetter<boolean>;
   customBackground: string;
   setCustomBackground: StateSetter<string>;
   customBackgroundOpacity: number;

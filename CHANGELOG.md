@@ -4,6 +4,19 @@
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.3.8] - 2026-05-27
+
+### 改进
+
+- **新增「启动时检查更新」开关**：默认开启（与历史行为一致）。关闭后应用启动不再向 GitHub 发更新请求；版本号旁的按钮始终可用，用于手动检查。
+- **主题商店面板**：未配置 `VITE_API_BASE_URL` 时显示中文友好提示「主题商店暂未启用」，不再是冷冰冰的空列表/加载失败。
+- **主题商店入口**：未启用时不在外观设置组中渲染按钮，避免误点。
+- **启动期 store-theme 处理**：用户保存的主题为 `store-xxx` 但商店未启用时，静默回退到默认主题（`mica`），避免应用启动时反复尝试拉取已下线的主题资源。
+
+### 修复
+
+- 移除 6 处来自上游的 `[THEME DEBUG]` 调试 `console.log`（涉及 `useSettingsInit.ts`、`AppearanceSettingsGroup.tsx`、`App.tsx`），减少 Tauri 内核日志噪声。
+
 ## [0.3.7] - 2026-05-27
 
 ### 改进
@@ -56,6 +69,7 @@
 - README 调整：更新仓库链接指向本 fork，移除上游的赞助和社区入口，新增 fork 与协议合规说明。
 - 补充 `vitest` 开发依赖以让 `tsc` 顺利通过对仓库内 `*.test.ts` 文件的类型检查。
 
+[0.3.8]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.8
 [0.3.7]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.7
 [0.3.6]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.6
 [0.3.5]: https://github.com/Duojiyi/tiez-clipboard/releases/tag/v0.3.5

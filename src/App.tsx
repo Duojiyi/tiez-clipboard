@@ -263,6 +263,7 @@ const App = () => {
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
+    setCheckUpdateOnStartup,
     customBackground,
     setCustomBackground,
     customBackgroundOpacity,
@@ -599,6 +600,7 @@ const App = () => {
     setHideTrayIcon,
     setHideDockIcon,
     setEdgeDocking,
+    setCheckUpdateOnStartup,
     setShowSearchBox,
     setScrollTopButtonEnabled,
     setArrowKeySelection,
@@ -811,7 +813,6 @@ const App = () => {
 
   const saveAppSetting = useCallback(async (type: string, path: string) => {
     const key = `app.${type}`;
-    console.log(`[THEME DEBUG] saveAppSetting called: key=${key}, value=${path}`);
     setAppSettings(prev => ({ ...prev, [key]: path }));
 
     // Sync theme-related settings to localStorage for instant startup (prevents flash)
@@ -825,7 +826,6 @@ const App = () => {
 
     try {
       await invoke("save_setting", { key, value: path });
-      console.log(`[THEME DEBUG] saveAppSetting success: key=${key}`);
     } catch (err) {
       console.error("保存设置失败", err);
     }

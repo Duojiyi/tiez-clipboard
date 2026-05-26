@@ -26,6 +26,8 @@ interface GeneralSettingsGroupProps {
     setHideDockIcon: (val: boolean) => void;
     edgeDocking: boolean;
     setEdgeDocking: (val: boolean) => void;
+    checkUpdateOnStartup: boolean;
+    setCheckUpdateOnStartup: (val: boolean) => void;
     soundEnabled: boolean;
     setSoundEnabled: (val: boolean) => void;
     pasteSoundEnabled: boolean;
@@ -60,6 +62,8 @@ const GeneralSettingsGroup = ({
     setHideDockIcon,
     edgeDocking,
     setEdgeDocking,
+    checkUpdateOnStartup,
+    setCheckUpdateOnStartup,
     soundEnabled,
     setSoundEnabled,
     pasteSoundEnabled,
@@ -246,6 +250,26 @@ const GeneralSettingsGroup = ({
                                 const enabled = e.target.checked;
                                 setSilentStart(enabled);
                                 invoke("set_silent_start", { enabled }).catch(console.error);
+                            }}
+                        />
+                        <div className="toggle"><div className="left" /><div className="right" /></div>
+                    </label>
+                </div>
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('check_update_on_startup') || '启动时检查更新'}
+                        hint={t('check_update_on_startup_hint') || '关闭后启动时不再向 GitHub 发起更新检查请求，可在此面板手动检查'}
+                        hintKey="check_update_on_startup"
+                    />
+                    <label className="switch">
+                        <input
+                            className="cb"
+                            type="checkbox"
+                            checked={checkUpdateOnStartup}
+                            onChange={(e) => {
+                                const enabled = e.target.checked;
+                                setCheckUpdateOnStartup(enabled);
+                                saveAppSetting('check_update_on_startup', String(enabled));
                             }}
                         />
                         <div className="toggle"><div className="left" /><div className="right" /></div>
