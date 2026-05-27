@@ -33,6 +33,8 @@
 
 ## 主题展示
 
+  <sub>说明：以下主题截图沿用自上游 `TieZ` 仓库，标题栏仍显示老名字。视觉效果（Mica、Acrylic、便利贴风格等）与 Magpie 完全一致。新版截图计划在 v0.4.2 UI 升级时同步替换。</sub>
+
   <table>
     <tr>
       <td align="center"><b>极简毛玻璃</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>

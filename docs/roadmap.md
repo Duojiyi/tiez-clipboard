@@ -35,6 +35,7 @@ v0.6+   💭 远期     - OCR / Smart Actions / 本地 AI（待评估）
 - **空状态设计**：搜索无结果、Snippet 库为空、表情包为空时给友好的引导
 - **设置面板分组重构**：当前 SettingsGroup 嵌套较深，重新分类减少层级
 - **错误/警告/成功提示统一样式**：Toast / Banner / Inline 三种规范化
+- **README 主题截图重截**：v0.4.0 的 README 仍沿用上游 TieZ 的主题截图（标题栏显示老名字）。本版本完成 UI 升级后用 Magpie 各主题重新截 4 张（3d / 书 / 便利贴 / 毛玻璃），覆盖 `docs/images/*.png`，并加暗色版本
 
 #### 不做
 

@@ -33,6 +33,8 @@ This repository is based on [`jimuzhe/tiez-clipboard`](https://github.com/jimuzh
 
 ## Theme Gallery
 
+  <sub>Note: theme screenshots below are inherited from the upstream `TieZ` codebase and still show the old window title. The visual styles (Mica, Acrylic, sticky note, etc.) are exactly the same in Magpie. New screenshots are scheduled for v0.4.2 alongside the UI refresh.</sub>
+
   <table>
     <tr>
       <td align="center"><b>Frosted Glass</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
