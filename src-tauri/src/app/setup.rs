@@ -974,7 +974,7 @@ fn init_announcement_ping(app: &App, repo: &impl SettingsRepository) {
     if repo.get("app.last_ping_date").unwrap_or(None).as_deref() != Some(&today) {
         let _ = repo.set("app.last_ping_date", &today);
         let version = app.package_info().version.to_string();
-        if let Ok(base_url) = std::env::var("TIEZ_ANNOUNCEMENT_PING_URL") {
+        if let Ok(base_url) = std::env::var("MAGPIE_ANNOUNCEMENT_PING_URL") {
             let base_url = base_url.trim().to_string();
             if !base_url.is_empty() {
                 std::thread::spawn(move || {

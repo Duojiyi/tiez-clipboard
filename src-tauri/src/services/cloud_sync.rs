@@ -3472,7 +3472,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("tiez-cloud-sync-{name}-{unique}"));
+        let dir = std::env::temp_dir().join(format!("magpie-cloud-sync-{name}-{unique}"));
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
     }

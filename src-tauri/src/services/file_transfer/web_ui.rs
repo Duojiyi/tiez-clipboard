@@ -758,7 +758,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
         localStorage.setItem('tiez_device_id', deviceId);
         
         const deviceName = "Mobile";
-        const TIEZ_LOGO = "{logo_base64}";
+        const MAGPIE_LOGO = "{logo_base64}";
         const pendingUploads = new Map(); // filename -> [elements]
 
         function scrollToBottom() {{
@@ -871,7 +871,7 @@ pub fn render_index(theme: &str, color_mode: &str, logo_base64: &str) -> String 
                     const lower = name.toLowerCase();
                     const isPc = name === '电脑' || name === 'PC' || lower === 'pc' || lower === 'tiez' || lower === 'magpie';
                     if (isPc) {{
-                        return `<div class="avatar"><img src="${{TIEZ_LOGO}}" alt="Magpie"></div>`;
+                        return `<div class="avatar"><img src="${{MAGPIE_LOGO}}" alt="Magpie"></div>`;
                     }}
                     return `<div class="avatar">${{name ? escapeHTML(name[0]) : '?'}}</div>`;
                 }})() : ''}}
