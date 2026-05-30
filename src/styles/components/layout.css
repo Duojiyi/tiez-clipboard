@@ -11,17 +11,24 @@ header {
   cursor: default;
 }
 
+/* 已弃用 CSS -webkit-app-region 拖动：在透明窗口 + WebView2 下，app-region 拖动
+ * 走 WebView 命中测试 + 跨进程 IPC，高速拖动有明显延迟卡顿。改用原生
+ * data-tauri-drag-region（mousedown 即交给系统移动窗口，跟手零延迟）。
+ * 保留空类名以兼容历史 className 引用，但不再赋予 app-region 拖动行为。 */
 .window-drag-region {
-  -webkit-app-region: drag;
-  app-region: drag;
+  position: relative;
 }
 
 .window-no-drag {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  /* 交互元素（按钮 / 搜索框）盖在拖动层之上，z-index 提升以正常接收点击 */
+  position: relative;
+  z-index: 1;
 }
 
+/* header 顶行铺一层透明原生拖动层，内容浮于其上：
+ * 点击空白命中拖动层 → 原生流畅拖动；点击按钮命中按钮 → 正常交互。 */
 .header-top {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -30,12 +37,22 @@ header {
   min-height: 20px;
 }
 
+.header-drag-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .header-leading {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .header-drag-region {

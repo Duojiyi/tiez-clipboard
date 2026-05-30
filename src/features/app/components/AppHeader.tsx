@@ -100,6 +100,9 @@ const AppHeader = ({
   return (
   <header className="window-drag-region">
     <div className="header-top">
+      {/* 透明原生拖动层：铺满 header 顶行，自身带 data-tauri-drag-region 走原生窗口拖动，
+          内容（按钮/标题/搜索）以更高 z-index 浮于其上，点击空白即流畅拖动窗口。 */}
+      <div className="header-drag-layer" data-tauri-drag-region />
       <div className="header-leading">
         {(showSettings || showTagManager || showEmojiPanel) && (
           <button className="btn-icon window-no-drag" onClick={onBack}>
@@ -107,7 +110,7 @@ const AppHeader = ({
           </button>
         )}
         <div className="header-drag-region" data-tauri-drag-region>
-          <span className="header-title">
+          <span className="header-title" data-tauri-drag-region>
             {showEmojiPanel
               ? (t('emoji_panel') || '表情包')
               : showTagManager && tagManagerEnabled

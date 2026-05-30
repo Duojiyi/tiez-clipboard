@@ -230,6 +230,11 @@ pub fn seed_defaults(conn: &Connection) -> Result<()> {
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.color_mode', 'system')",
         [],
     );
+    // 表情包默认开启（INSERT OR IGNORE：仅对未设过的用户生效，不覆盖主动关过的老用户）
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.emoji_panel_enabled', 'true')",
+        [],
+    );
     let _ = conn.execute(
         "INSERT OR IGNORE INTO settings (key, value) VALUES ('app.show_app_border', 'true')",
         [],

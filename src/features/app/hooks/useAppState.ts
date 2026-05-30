@@ -107,7 +107,7 @@ export const useAppState = (): AppState => {
   const [cardDensity, setCardDensity] = useState<CardDensity>("standard");
   const [clipboardItemFontSize, setClipboardItemFontSize] = useState(13);
   const [clipboardTagFontSize, setClipboardTagFontSize] = useState(10);
-  const [emojiPanelEnabled, setEmojiPanelEnabled] = useState(false);
+  const [emojiPanelEnabled, setEmojiPanelEnabled] = useState(true);
   const [emojiPanelTab, setEmojiPanelTab] = useState<"emoji" | "favorites">("emoji");
   const [showHotkeyHint, setShowHotkeyHint] = useState(false);
   const [showAutoCloseHint, setShowAutoCloseHint] = useState(false);
