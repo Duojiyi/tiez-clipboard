@@ -56,3 +56,11 @@ build_*.log
 
 # Sub-projects
 mobile-app/
+
+# Internal planning / spec docs (not for public repo)
+.kiro/
+docs/v0.4.1-plan.md
+docs/roadmap.md
+docs/THEME-SYSTEM.md
+docs/18-month-evolution.md
+docs/ime-25h2-investigation.md

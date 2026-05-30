@@ -35,16 +35,8 @@ This repository is based on [`jimuzhe/tiez-clipboard`](https://github.com/jimuzh
 
 ## Theme Gallery
 
-  <sub>Note: the screenshots below are placeholders for the new Magpie v0.4.x theme captures (no more TieZ title bar). The image files will be swapped in once the new screenshots are taken; the visual styles (Mica, Acrylic, sticky note, etc.) are already what ships in Magpie.</sub>
+  <sub>New Magpie v0.4.x theme captures are being prepared. The refreshed visual system (calm low-saturation palette, liquid-glass variants) ships in the app — screenshots will be added here once finalized.</sub>
 
-  <table>
-    <tr>
-      <td align="center"><b>Frosted Glass</b><br><img src="docs/images/theme-frosted-glass.png" width="220" /></td>
-      <td align="center"><b>Notebook Style</b><br><img src="docs/images/theme-notebook.png" width="220" /></td>
-      <td align="center"><b>Sticky Note</b><br><img src="docs/images/theme-sticky-note.png" width="220" /></td>
-      <td align="center"><b>3D Interaction</b><br><img src="docs/images/theme-3d.png" width="220" /></td>
-    </tr>
-  </table>
 </div>
 
 ---

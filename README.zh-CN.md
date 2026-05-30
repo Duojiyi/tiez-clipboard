@@ -35,16 +35,8 @@
 
 ## 主题展示
 
-  <sub>说明：以下为新版 Magpie v0.4.x 主题截图的占位图（不再出现 TieZ 标题栏）。待新版截图拍摄完成后将替换对应图片文件；视觉效果（Mica、Acrylic、便利贴风格等）即为 Magpie 当前实际呈现。</sub>
+  <sub>新版 Magpie v0.4.x 主题截图正在准备中。全新视觉系统（低饱和静谧配色、液态玻璃变体）已随应用发布，截图定稿后将补充于此。</sub>
 
-  <table>
-    <tr>
-      <td align="center"><b>极简毛玻璃</b><br><img src="docs/images/theme-frosted-glass.png" width="220" /></td>
-      <td align="center"><b>笔记本风格</b><br><img src="docs/images/theme-notebook.png" width="220" /></td>
-      <td align="center"><b>便利贴风格</b><br><img src="docs/images/theme-sticky-note.png" width="220" /></td>
-      <td align="center"><b>3D 动感</b><br><img src="docs/images/theme-3d.png" width="220" /></td>
-    </tr>
-  </table>
 </div>
 
 ---
