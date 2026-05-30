@@ -98,7 +98,7 @@ const AdvancedSettingsGroup = ({
     const [selectedSourceId, setSelectedSourceId] = useState("global");
     const [expandedRuleIndex, setExpandedRuleIndex] = useState<number | null>(0);
     const [draftRules, setDraftRules] = useState<EditableRule[]>(parseRules(cleanupRules));
-    const [sidebarWidth, setSidebarWidth] = useState(120);
+    const [sidebarWidth, setSidebarWidth] = useState(148);
     const [sidebarHeight, setSidebarHeight] = useState(180);
     const [isResizing, setIsResizing] = useState(false);
     const [isStacked, setIsStacked] = useState(false);
@@ -202,7 +202,7 @@ const AdvancedSettingsGroup = ({
                 return;
             }
 
-            const nextWidth = Math.min(Math.max(event.clientX - bounds.left, 80), 280);
+            const nextWidth = Math.min(Math.max(event.clientX - bounds.left, 120), 280);
             setSidebarWidth(nextWidth);
         };
 

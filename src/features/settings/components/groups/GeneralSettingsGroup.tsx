@@ -1,6 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardCopy, Settings } from "lucide-react";
+import type { CardDensity } from "../../../app/types";
 
 const isMacPlatform =
     /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) || /Mac/i.test(navigator.platform);
@@ -38,6 +40,8 @@ interface GeneralSettingsGroupProps {
     setScrollTopButtonEnabled: (val: boolean) => void;
     emojiPanelEnabled: boolean;
     setEmojiPanelEnabled: (val: boolean) => void;
+    cardDensity: CardDensity;
+    setCardDensity: (val: CardDensity) => void;
     tagManagerEnabled: boolean;
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
@@ -74,6 +78,8 @@ const GeneralSettingsGroup = ({
     setScrollTopButtonEnabled,
     emojiPanelEnabled,
     setEmojiPanelEnabled,
+    cardDensity,
+    setCardDensity,
     tagManagerEnabled,
     setTagManagerEnabled,
     arrowKeySelection,
@@ -81,10 +87,31 @@ const GeneralSettingsGroup = ({
     soundVolume,
     setSoundVolume,
     saveAppSetting
-}: GeneralSettingsGroupProps) => (
+}: GeneralSettingsGroupProps) => {
+    // 「复制诊断信息」按钮的即时反馈状态：idle 空闲 / copied 成功 / error 失败
+    const [diagState, setDiagState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+    // 调用后端 copy_diagnostics 收集并脱敏诊断信息，再写入剪贴板（不做任何网络上传）
+    const handleCopyDiagnostics = async () => {
+        try {
+            const report = await invoke<string>("copy_diagnostics");
+            await navigator.clipboard.writeText(report);
+            setDiagState('copied');
+        } catch (err) {
+            console.error("复制诊断信息失败:", err);
+            setDiagState('error');
+        }
+        window.setTimeout(() => setDiagState('idle'), 2000);
+    };
+
+    return (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <div className="group-header" onClick={onToggle}>
-            <h3 style={{ margin: 0 }}>{t('general_settings')}</h3>
+            {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings size={16} />
+                <h3 style={{ margin: 0 }}>{t('general_settings')}</h3>
+            </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </div>
         {!collapsed && (
@@ -376,10 +403,65 @@ const GeneralSettingsGroup = ({
                     </label>
                 </div>
 
+                {/* 卡片密度三档（V5 / 需求 32.1）：紧凑 / 标准 / 宽松，存 app.card_density，默认 standard */}
+                <div className="setting-item column">
+                    <div className="item-label-group" style={{ marginBottom: '8px' }}>
+                        <LabelWithHint
+                            label={t('card_density') || '卡片密度'}
+                            hint={t('card_density_hint') || '调整剪贴板列表条目的高度与间距，紧凑可一屏看到更多，宽松更舒适'}
+                            hintKey="card_density"
+                        />
+                    </div>
+                    <div className="settings-inline-choice-row">
+                        {([
+                            { id: 'compact', name: t('card_density_compact') || '紧凑' },
+                            { id: 'standard', name: t('card_density_standard') || '标准' },
+                            { id: 'loose', name: t('card_density_loose') || '宽松' }
+                        ] as { id: CardDensity; name: string }[]).map((densityItem) => (
+                            <button
+                                key={densityItem.id}
+                                type="button"
+                                onClick={() => {
+                                    setCardDensity(densityItem.id);
+                                    saveAppSetting('card_density', densityItem.id);
+                                }}
+                                className={`btn-icon settings-inline-choice-btn ${cardDensity === densityItem.id ? 'active' : ''}`}
+                            >
+                                {densityItem.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {/* macOS cleanup: Removed Restart as Admin */}
+
+                {/* 复制诊断信息（A9 / 需求 7）：收集脱敏后的日志与系统信息写入剪贴板，便于提交反馈 */}
+                <div className="setting-item">
+                    <LabelWithHint
+                        label={t('copy_diagnostics') || '复制诊断信息'}
+                        hint={t('copy_diagnostics_hint') || '收集日志末尾、系统信息与设置摘要（已脱敏）到剪贴板，便于提交反馈，不会上传任何数据'}
+                        hintKey="copy_diagnostics"
+                    />
+                    <button
+                        type="button"
+                        className="btn-icon"
+                        style={{ width: 'auto', fontSize: '11px', height: '28px', padding: '0 12px', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        onClick={handleCopyDiagnostics}
+                    >
+                        <ClipboardCopy size={14} />
+                        <span>
+                            {diagState === 'copied'
+                                ? (t('copied') || '已复制')
+                                : diagState === 'error'
+                                    ? (t('copy_failed') || '复制失败')
+                                    : (t('copy_diagnostics') || '复制诊断信息')}
+                        </span>
+                    </button>
+                </div>
             </div>
         )}
     </div>
-);
+    );
+};
 
 export default GeneralSettingsGroup;

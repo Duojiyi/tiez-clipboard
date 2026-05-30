@@ -1,6 +1,6 @@
 <p align="left">
   <img src="docs/images/logo.png" width="32" vertical-align="middle" />
-  <b>Making fragmented information flow effortlessly.</b>
+  <b>A lightweight information hub — making fragmented information flow effortlessly.</b>
 </p>
 
 ---
@@ -21,11 +21,13 @@
 
 ## About Magpie
 
-**Magpie** is a local-first, privacy-respecting clipboard manager for Windows.
+**Magpie** is a local-first, privacy-respecting **lightweight information hub** for Windows, built on a fast clipboard core.
+
+It started as a clipboard manager and is gradually growing into a quiet place where the fragments you copy, sync, tag, and revisit all flow together. Capturing text and images is just the entry point — Magpie keeps your scattered bits organized and within reach, so the right snippet is always one shortcut away.
 
 This repository is based on [`jimuzhe/tiez-clipboard`](https://github.com/jimuzhe/tiez-clipboard) under the GPL-3.0 license, and has been independently maintained as **Magpie** since v0.4.0. It includes upstream-pending bug fixes, privacy hardening, and UX improvements. See [CHANGELOG](./CHANGELOG.md) for details.
 
-> The magpie is folklorically associated with collecting shiny things — a fitting metaphor for a clipboard manager that quietly keeps the bits and pieces you'll want later.
+> The magpie is folklorically associated with collecting shiny things — a fitting metaphor for an information hub that quietly keeps the bits and pieces you'll want later.
 
 ---
 
@@ -33,14 +35,14 @@ This repository is based on [`jimuzhe/tiez-clipboard`](https://github.com/jimuzh
 
 ## Theme Gallery
 
-  <sub>Note: theme screenshots below are inherited from the upstream `TieZ` codebase and still show the old window title. The visual styles (Mica, Acrylic, sticky note, etc.) are exactly the same in Magpie. New screenshots are scheduled for v0.4.2 alongside the UI refresh.</sub>
+  <sub>Note: the screenshots below are placeholders for the new Magpie v0.4.x theme captures (no more TieZ title bar). The image files will be swapped in once the new screenshots are taken; the visual styles (Mica, Acrylic, sticky note, etc.) are already what ships in Magpie.</sub>
 
   <table>
     <tr>
-      <td align="center"><b>Frosted Glass</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>Notebook Style</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>Sticky Note</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>3D Interaction</b><br><img src="docs/images/3d.png" width="220" /></td>
+      <td align="center"><b>Frosted Glass</b><br><img src="docs/images/theme-frosted-glass.png" width="220" /></td>
+      <td align="center"><b>Notebook Style</b><br><img src="docs/images/theme-notebook.png" width="220" /></td>
+      <td align="center"><b>Sticky Note</b><br><img src="docs/images/theme-sticky-note.png" width="220" /></td>
+      <td align="center"><b>3D Interaction</b><br><img src="docs/images/theme-3d.png" width="220" /></td>
     </tr>
   </table>
 </div>

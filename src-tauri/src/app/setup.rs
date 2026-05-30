@@ -38,6 +38,16 @@ static WINDOW_SIZE_SAVE_PENDING: AtomicBool = AtomicBool::new(false);
 static LAST_WINDOW_SIZE_EVENT_MS: AtomicU64 = AtomicU64::new(0);
 static LAST_WINDOW_SIZE: OnceLock<Mutex<(u32, u32)>> = OnceLock::new();
 
+/// A10(需求 8.8)：标记本次启动是否因「期望便携但 data 目录缺失」而降级为标准模式。
+/// `resolve_data_dir` 阶段前端 webview 尚未就绪，无法直接 emit；此处先置位，
+/// 待启动后段（窗口/服务就绪）再向前端 emit 提示。
+static PORTABLE_DEGRADED_TO_STANDARD: AtomicBool = AtomicBool::new(false);
+
+/// A8(需求 6.5/6.7)：标记本次启动是否因 v0.4.0 数据迁移失败降级而改用 legacy 目录。
+/// 与 PORTABLE_DEGRADED_TO_STANDARD 同理：`resolve_data_dir` 阶段 webview 未就绪，
+/// 先置位，待启动后段再向前端 emit「数据迁移未完成，已使用原有数据启动」提示。
+static MIGRATION_DEGRADED_TO_LEGACY: AtomicBool = AtomicBool::new(false);
+
 #[derive(Clone, Copy, Debug)]
 struct WindowRect {
     x: i32,
@@ -82,31 +92,79 @@ pub fn init(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     )));
     spawn_sensitive_alignment(app_handle.clone());
 
-    // 6. Window Initialization (Pinned/Focus)
+    // 5.1 C4(需求 23.2)：异步执行 schema 健康检查与维护。
+    // DbState 已在 setup_state 中 manage（首屏依赖的 schema 创建/迁移已在 init_db 同步完成），
+    // 这里复用同一共享连接在后台做「不影响首屏」的关键表校验与 WAL/统计维护。
+    database::spawn_schema_check(conn_arc.clone());
+
+    // 6. Window Initialization (Pinned/Focus 等几何与样式，不含 show)
     setup_main_window(app, &settings);
 
     // 6.1 External Drag-Drop (Web Images)
     #[cfg(windows)]
     crate::infrastructure::windows_api::drag_drop::register_emoji_drag_drop(app_handle.clone());
 
-    // 7. Background Services & Monitors
-    start_services(app, &settings, app_handle.clone());
-
-    // 8. Tray Setup
-    setup_tray(app, settings.hide_tray_icon);
-
-    // 9. Theme Initial Application
+    // 7. C4(需求 23.3) + 启动闪烁修复：先在「隐藏」状态下应用主题(DWM mica/acrylic vibrancy)，
+    // 再显示窗口。窗口在 tauri.conf.json 配置为 visible:false 启动，避免透明窗口在
+    // vibrancy 生效前以系统默认不透明背景短暂显示（便携版 release 下尤为明显的「白框一闪」）。
+    // apply_mica/apply_acrylic 基于 HWND 的 DWM 调用对隐藏窗口同样有效，因此可先设透明、后显示。
     apply_initial_theme(app);
 
-    // 10. Win32 Hook Initialization
+    // 8. 主题(透明效果)就绪后再显示窗口骨架，此时窗口一出现即为透明，无不透明方框闪烁。
+    show_window_skeleton(app, &settings);
+
+    // 9. Background Services & Monitors（C4 需求 23.4：tokio::join! 并行启动）
+    start_services(app, &settings, app_handle.clone());
+
+    // 10. Tray Setup
+    setup_tray(app, settings.hide_tray_icon);
+
+    // 11. Win32 Hook Initialization
     #[cfg(target_os = "windows")]
     init_win32_hooks(app);
 
-    // 11. TaskbarCreated & Subclass
+    // 12. TaskbarCreated & Subclass
     #[cfg(target_os = "windows")]
     setup_taskbar_listener(app);
 
+    // 13. 便携降级提示（需求 8.8）：若本次因 data 目录缺失而降级为标准模式，
+    // 延迟向前端 emit 提示，确保 webview 已挂载事件监听后能收到。
+    emit_portable_degraded_notice_if_needed(app_handle.clone());
+
+    // 14. 迁移降级提示（需求 6.5/6.7）：若本次因 v0.4.0 迁移失败降级而改用 legacy 目录，
+    // 同样延迟向前端 emit 提示。
+    emit_migration_degraded_notice_if_needed(app_handle.clone());
+
     Ok(())
+}
+
+/// A10(需求 8.8)：若启动时检测到「期望便携但 data 目录不存在」已降级为标准模式，
+/// 则向前端 emit「已降级为标准模式运行」提示。延迟发送以等待前端事件监听就绪。
+fn emit_portable_degraded_notice_if_needed(app_handle: AppHandle) {
+    if !PORTABLE_DEGRADED_TO_STANDARD.load(Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || {
+        // 等待前端 webview 完成挂载，避免事件先于监听器发出而丢失。
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let _ = app_handle.emit("portable-degraded-to-standard", "已降级为标准模式运行");
+    });
+}
+
+/// A8(需求 6.5/6.7)：若启动时 v0.4.0 数据迁移失败已降级到 legacy 目录（com.tiez），
+/// 则向前端 emit「数据迁移未完成，已使用原有数据启动」提示。延迟发送以等待前端事件监听就绪。
+fn emit_migration_degraded_notice_if_needed(app_handle: AppHandle) {
+    if !MIGRATION_DEGRADED_TO_LEGACY.load(Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || {
+        // 等待前端 webview 完成挂载，避免事件先于监听器发出而丢失。
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let _ = app_handle.emit(
+            "migration-degraded-to-legacy",
+            "数据迁移未完成，已使用原有数据启动",
+        );
+    });
 }
 
 fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
@@ -114,7 +172,18 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
 
     // Perform migration if needed
     crate::migration::perform_migration_v028(&default_app_dir);
-    crate::migration::perform_migration_v040(&default_app_dir);
+    let migration_outcome = crate::migration::perform_migration_v040(&default_app_dir);
+
+    // A8(需求 6.5/6.7)：迁移失败降级时，本次启动改用 legacy 目录（com.tiez）作为基准目录，
+    // 后续 datapath 重定向解析与回退都以该基准目录为准；正常情况下基准目录为 app.magpie。
+    let degraded_legacy = matches!(
+        migration_outcome,
+        crate::migration::MigrationOutcome::DegradedToLegacy(_)
+    );
+    let base_dir = match migration_outcome {
+        crate::migration::MigrationOutcome::DegradedToLegacy(legacy) => legacy,
+        crate::migration::MigrationOutcome::UseTarget => default_app_dir.clone(),
+    };
 
     // Cleanup temp files
     std::thread::spawn(|| {
@@ -130,35 +199,146 @@ fn resolve_data_dir(app: &App) -> Result<std::path::PathBuf, Box<dyn std::error:
         }
     });
 
-    let redirect_file = default_app_dir.join("datapath.txt");
+    let redirect_file = base_dir.join("datapath.txt");
     let mut app_dir = if redirect_file.exists() {
         if let Ok(content) = std::fs::read_to_string(&redirect_file) {
             let custom_path = content.trim();
-            if !custom_path.is_empty() && std::path::Path::new(custom_path).exists() {
+            if custom_path.is_empty() {
+                base_dir.clone()
+            } else if !drive_root_exists(custom_path) {
+                // A5(需求 4)：自定义数据目录所在盘符根不存在（如外接盘已拔出），
+                // 回退基准目录，并向 tiez.log 追加回退原因。
+                // 此阶段 logger 尚未初始化，直接以 append 方式写入目标日志文件。
+                append_datapath_fallback_log(
+                    &base_dir,
+                    &format!(
+                        "datapath.txt 指向的盘符不存在，已回退默认数据目录。custom_path={}",
+                        custom_path
+                    ),
+                );
+                base_dir.clone()
+            } else if std::path::Path::new(custom_path).exists() {
                 std::path::PathBuf::from(custom_path)
             } else {
-                default_app_dir.clone()
+                base_dir.clone()
             }
         } else {
-            default_app_dir.clone()
+            base_dir.clone()
         }
     } else {
-        default_app_dir.clone()
+        base_dir.clone()
     };
 
     // Portable mode check
+    let mut portable_used = false;
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             let portable_data = exe_dir.join("data");
-            if portable_data.exists() && portable_data.is_dir() {
-                app_dir = portable_data;
+            let portable_data_exists = portable_data.exists() && portable_data.is_dir();
+            let expecting_portable = is_expecting_portable(exe_dir);
+            // 便携数据目录决策抽为纯函数 decide_portable_data_dir，副作用（写日志/置位降级标记）留在此处。
+            let (resolved, used, degraded) = decide_portable_data_dir(
+                &app_dir,
+                &portable_data,
+                &default_app_dir,
+                portable_data_exists,
+                expecting_portable,
+            );
+            app_dir = resolved;
+            portable_used = used;
+            if degraded {
+                // A10(需求 8.8)：检测到便携标志（README_PORTABLE.md）说明期望以便携模式运行，
+                // 但 exe_dir/data/ 缺失（如被误删）。降级为标准模式：使用 %APPDATA%\app.magpie，
+                // 向 tiez.log 追加说明（此阶段 logger 未初始化，沿用 append 写日志模式），
+                // 并标记降级以便启动后段向前端 emit「已降级为标准模式运行」提示。
+                append_datapath_fallback_log(
+                    &default_app_dir,
+                    "检测到便携标志但 data 目录不存在，已降级为标准模式运行（使用 %APPDATA%\\app.magpie）。",
+                );
+                PORTABLE_DEGRADED_TO_STANDARD.store(true, Ordering::SeqCst);
             }
         }
     }
 
+    // A8(需求 6.5/6.7)：迁移失败降级且本次最终未走便携数据目录时，标记使用了 legacy 目录，
+    // 以便启动后段向前端 emit「数据迁移未完成，已使用原有数据启动」提示。
+    MIGRATION_DEGRADED_TO_LEGACY.store(degraded_legacy && !portable_used, Ordering::SeqCst);
+
     std::fs::create_dir_all(&app_dir)?;
     Ok(app_dir)
 }
+
+/// A10(需求 8.8)：便携模式数据目录决策（纯函数，便于单元测试）。
+///
+/// 输入：
+/// - `current_app_dir`：datapath 解析后的候选数据目录（默认为基准目录）。
+/// - `portable_data`：exe 同级 `data` 目录路径。
+/// - `default_app_dir`：标准模式数据目录 `%APPDATA%\app.magpie`。
+/// - `portable_data_exists`：`portable_data` 是否存在且为目录。
+/// - `expecting_portable`：是否检测到便携标志（README_PORTABLE.md）。
+///
+/// 返回 `(最终数据目录, 是否便携模式, 是否降级为标准模式)`：
+/// - 便携 data 目录存在 → 使用便携目录；
+/// - 否则若期望便携但 data 缺失 → 降级为标准模式（使用 `default_app_dir`）；
+/// - 否则 → 保持候选目录不变（标准安装，非便携）。
+fn decide_portable_data_dir(
+    current_app_dir: &std::path::Path,
+    portable_data: &std::path::Path,
+    default_app_dir: &std::path::Path,
+    portable_data_exists: bool,
+    expecting_portable: bool,
+) -> (std::path::PathBuf, bool, bool) {
+    if portable_data_exists {
+        (portable_data.to_path_buf(), true, false)
+    } else if expecting_portable {
+        (default_app_dir.to_path_buf(), false, true)
+    } else {
+        (current_app_dir.to_path_buf(), false, false)
+    }
+}
+
+/// A10(需求 8.8)：判断是否「期望以便携模式运行」。
+/// 便携包由 `scripts/build-portable.ps1` 打包，独有 `README_PORTABLE.md` 标志文件
+/// （安装版不含此文件）。据此在 data 目录缺失时区分「期望便携」与「标准安装」。
+fn is_expecting_portable(exe_dir: &std::path::Path) -> bool {
+    exe_dir.join("README_PORTABLE.md").exists()
+}
+
+/// A5(需求 4)：校验路径所在盘符根是否存在。
+/// 提取形如 `E:\` 的盘符根并判断其存在性；当外接盘被拔出时返回 false。
+/// 解析不出盘符（非 Windows 盘符前缀，如 UNC 路径）时按原路径自身存在性判定。
+fn drive_root_exists(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    // 形如 "E:\..." 或 "e:/..."：取盘符字母 + ":\" 作为盘符根
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        let drive_root = format!("{}:\\", (bytes[0] as char).to_ascii_uppercase());
+        return std::path::Path::new(&drive_root).exists();
+    }
+    // 非标准盘符前缀（如 UNC \\server\share）：回退到路径自身存在性判定。
+    std::path::Path::new(path).exists()
+}
+
+/// A5(需求 4.3)：因盘符不存在而回退默认目录时，向目标 tiez.log 追加一条说明日志。
+/// 此函数在 logger 初始化之前调用，故直接以 append 方式写入文件。
+fn append_datapath_fallback_log(default_app_dir: &std::path::Path, reason: &str) {
+    use std::io::Write;
+    // 确保默认目录存在，避免日志写入失败。
+    let _ = std::fs::create_dir_all(default_app_dir);
+    let log_path = default_app_dir.join("tiez.log");
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+    {
+        let _ = writeln!(file, "[DATAPATH FALLBACK] {}", reason);
+    }
+}
+
+/// F4(需求 18.3/18.6)：首启拷贝内置精选表情。
+///
+/// 用户表情库（F4，需求 18）默认为空，由用户自行通过「添加到表情包」加入。
+/// v0.4.1 起不再随包提供内置精选表情，也不在首启拷贝任何内置素材
+/// （此前的 copy_builtin_emojis_if_needed 机制已移除，空表情库为有意设计）。
 
 fn apply_startup_resets(repo: &impl SettingsRepository) {
     let paste_method = repo
@@ -461,8 +641,14 @@ fn setup_main_window(app: &App, s: &StartupSettings) {
     }
 
     schedule_window_position_repair(app.handle().clone(), s.edge_docking);
+}
 
-    // Handle silent start
+/// C4(需求 23.3)：在主题应用之前先显示窗口骨架。
+///
+/// 从 `setup_main_window` 中拆出窗口 `show` 逻辑，使「显示骨架 → 应用主题」的顺序
+/// 在 `init` 中显式可见：先让 webview 骨架尽快可见，再做耗时的 DWM/vibrancy 主题应用。
+/// 仍遵循静默启动语义：`--autostart`/`--minimized` 或开启「静默启动」时不显示窗口。
+fn show_window_skeleton(app: &App, s: &StartupSettings) {
     let args: Vec<String> = std::env::args().collect();
     let is_autostart =
         args.contains(&"--autostart".to_string()) || args.contains(&"--minimized".to_string());
@@ -492,7 +678,10 @@ fn schedule_window_position_repair(app_handle: AppHandle, edge_docking_enabled: 
     });
 }
 
-fn repair_window_position_if_needed(
+/// 多屏位置修复：当窗口矩形在所有显示器上都不足够可见（离屏/显示器掉线/分辨率变更）时，
+/// 复用 `clamp_window_rect_to_monitor` 将其钳制回目标显示器可见区域。返回是否发生了修复。
+/// 既用于启动期，也供唤起（`toggle_window`）路径做多屏定位兜底（需求 13.1）。
+pub(crate) fn repair_window_position_if_needed(
     window: &tauri::WebviewWindow,
     edge_docking_enabled: bool,
 ) -> bool {
@@ -612,11 +801,36 @@ fn clamp_window_rect_to_monitor(rect: WindowRect, monitor: &tauri::Monitor) -> (
 }
 
 fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
-    crate::infrastructure::windows_api::window_tracker::start_window_tracking(app_handle.clone());
-    crate::services::clipboard::start_clipboard_monitor(app_handle.clone());
-    crate::services::mqtt_sub::start_mqtt_client(app_handle.clone());
-    crate::services::cloud_sync::start_cloud_sync_client(app_handle.clone());
-    start_edge_docking_monitor(app_handle.clone());
+    // C4(需求 23.4)：用 `tokio::join!` 并行启动后台服务。
+    // 这些启动函数本身是非阻塞的（内部各自 spawn 线程/异步任务），用 join! 并发驱动
+    // 其启动逻辑，避免顺序等待。前提：依赖的 DbState/SettingsState 等已在 setup_state 中 manage。
+    // 各 future 内不持有 DbState 锁、不跨 await 借用 app，保证无数据竞争。
+    let (h_track, h_clip, h_mqtt, h_cloud, h_edge) = (
+        app_handle.clone(),
+        app_handle.clone(),
+        app_handle.clone(),
+        app_handle.clone(),
+        app_handle.clone(),
+    );
+    tauri::async_runtime::block_on(async move {
+        tokio::join!(
+            async {
+                crate::infrastructure::windows_api::window_tracker::start_window_tracking(h_track);
+            },
+            async {
+                crate::services::clipboard::start_clipboard_monitor(h_clip);
+            },
+            async {
+                crate::services::mqtt_sub::start_mqtt_client(h_mqtt);
+            },
+            async {
+                crate::services::cloud_sync::start_cloud_sync_client(h_cloud);
+            },
+            async {
+                start_edge_docking_monitor(h_edge);
+            },
+        );
+    });
 
     let db_state = app.state::<DbState>();
     if db_state
@@ -643,13 +857,18 @@ fn start_services(app: &App, s: &StartupSettings, app_handle: AppHandle) {
     // Register active hotkeys based on current settings.
     let _ = crate::app::commands::register_hotkey(app_handle.clone(), s.main_hotkey.clone());
 
-    // Win+V Optimization
-    if db_state
+    // Win+V 接管唤起（默认开启）：
+    // app.use_win_v_shortcut 缺省视为 "true"，启动时确保系统 Win+V 已被接管
+    // （写注册表 DisabledHotkeys 禁用系统剪贴板历史），并同步键盘钩子的拦截开关。
+    let win_v_enabled = db_state
         .settings_repo
         .get("app.use_win_v_shortcut")
-        .unwrap_or(Some("false".to_string()))
-        == Some("true".to_string())
-    {
+        .unwrap_or(Some("true".to_string()))
+        != Some("false".to_string());
+
+    WIN_V_TAKEOVER_ENABLED.store(win_v_enabled, Ordering::Relaxed);
+
+    if win_v_enabled {
         if !crate::app::commands::system_cmd::get_registry_win_v_optimized_status() {
             let _ = crate::app::commands::trigger_registry_win_v_optimization(true);
         }
@@ -1127,14 +1346,24 @@ fn setup_taskbar_listener(app: &App) {
 }
 
 pub fn handle_global_shortcut(app: &AppHandle, shortcut: &tauri_plugin_global_shortcut::Shortcut) {
+    use crate::app::commands::hotkey_cmd::{hotkey_scope, is_main_panel_visible, HotkeyScope};
     use tauri_plugin_global_shortcut::Shortcut;
     let settings = app.state::<SettingsState>();
+
+    // BackgroundOnly 作用域的快捷键在主面板可见时不响应（需求 19.7）。
+    // 仅在主面板可见时需要判定一次，避免重复查询。
+    let panel_visible = is_main_panel_visible(app);
+    let ignore_background_only =
+        |id: &str| panel_visible && hotkey_scope(app, id) == HotkeyScope::BackgroundOnly;
 
     if let Ok(main_s) = {
         let val = settings.main_hotkey.lock().unwrap().clone();
         val.replace("Win", "Super").parse::<Shortcut>()
     } {
         if shortcut == &main_s {
+            if ignore_background_only("main") {
+                return;
+            }
             toggle_window(app);
             return;
         }
@@ -1145,6 +1374,9 @@ pub fn handle_global_shortcut(app: &AppHandle, shortcut: &tauri_plugin_global_sh
         val.replace("Win", "Super").parse::<Shortcut>()
     } {
         if shortcut == &seq_s {
+            if ignore_background_only("sequential") {
+                return;
+            }
             let is_seq = settings.sequential_mode.load(Ordering::Relaxed);
             let has_items = {
                 let q_notification = app.state::<PasteQueue>().inner().0.lock().unwrap();
@@ -1166,6 +1398,9 @@ pub fn handle_global_shortcut(app: &AppHandle, shortcut: &tauri_plugin_global_sh
         val.replace("Win", "Super").parse::<Shortcut>()
     } {
         if shortcut == &rich_s {
+            if ignore_background_only("rich") {
+                return;
+            }
             crate::services::clipboard_ops::paste_latest_rich(app.clone());
         }
     }
@@ -1175,6 +1410,9 @@ pub fn handle_global_shortcut(app: &AppHandle, shortcut: &tauri_plugin_global_sh
         val.replace("Win", "Super").parse::<Shortcut>()
     } {
         if shortcut == &search_s {
+            if ignore_background_only("search") {
+                return;
+            }
             toggle_window(app);
             let _ = app.emit("focus-search-input", ());
         }
@@ -1339,4 +1577,77 @@ fn handle_blur(window: &tauri::Window) {
             }
         }
     });
+}
+
+// A10(需求 8.8)：便携模式缺失 data 目录时降级标准模式 — 单元测试
+#[cfg(test)]
+mod portable_degrade_tests {
+    use super::decide_portable_data_dir;
+    use std::path::PathBuf;
+
+    /// 模拟一组路径：便携 data 目录、标准模式目录、datapath 候选目录。
+    fn paths() -> (PathBuf, PathBuf, PathBuf) {
+        let exe_dir = PathBuf::from(r"D:\PortableApps\Magpie");
+        let portable_data = exe_dir.join("data");
+        let default_app_dir = PathBuf::from(r"C:\Users\tester\AppData\Roaming\app.magpie");
+        // datapath 解析后的候选目录（正常情况下即基准目录）
+        let current = default_app_dir.clone();
+        (portable_data, default_app_dir, current)
+    }
+
+    // Requirements 8.8：期望便携但 data/ 目录不存在时，回退路径解析为 %APPDATA%\app.magpie，并标记降级。
+    #[test]
+    fn 缺_data_目录时降级为标准模式目录() {
+        let (portable_data, default_app_dir, current) = paths();
+        // portable_data_exists=false（data 被误删），expecting_portable=true（含便携标志）
+        let (resolved, used, degraded) = decide_portable_data_dir(
+            &current,
+            &portable_data,
+            &default_app_dir,
+            false,
+            true,
+        );
+        assert_eq!(
+            resolved, default_app_dir,
+            "缺 data 目录且期望便携时应回退到标准模式目录 %APPDATA%\\app.magpie"
+        );
+        assert!(!used, "降级为标准模式时不应标记为便携模式");
+        assert!(degraded, "缺 data 目录且期望便携时应标记为已降级");
+    }
+
+    #[test]
+    fn data_目录存在时使用便携目录() {
+        let (portable_data, default_app_dir, current) = paths();
+        // data 存在 → 使用便携目录，不降级
+        let (resolved, used, degraded) = decide_portable_data_dir(
+            &current,
+            &portable_data,
+            &default_app_dir,
+            true,
+            true,
+        );
+        assert_eq!(resolved, portable_data, "data 目录存在时应使用便携 data 目录");
+        assert!(used, "应标记为便携模式");
+        assert!(!degraded, "便携模式正常时不应降级");
+    }
+
+    #[test]
+    fn 标准安装非便携时保持候选目录不变() {
+        let (portable_data, default_app_dir, current) = paths();
+        // 既无 data 目录，也无便携标志（标准安装版）→ 保持 datapath 候选目录不变，不降级
+        let (resolved, used, degraded) = decide_portable_data_dir(
+            &current,
+            &portable_data,
+            &default_app_dir,
+            false,
+            false,
+        );
+        assert_eq!(
+            resolved,
+            current.clone(),
+            "标准安装（非便携）时应保持候选数据目录不变"
+        );
+        assert!(!used, "标准安装不应标记为便携模式");
+        assert!(!degraded, "标准安装不应触发便携降级");
+    }
 }

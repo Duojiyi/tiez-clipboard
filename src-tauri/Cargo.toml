@@ -1,6 +1,6 @@
 [package]
 name = "magpie"
-version = "0.4.0"
+version = "0.4.1"
 description = "Magpie - a local-first clipboard manager for Windows"
 authors = ["Duojiyi", "jimuzhe and contributors (upstream)"]
 edition = "2021"
@@ -77,6 +77,18 @@ windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsA
 windows-core = "0.61"
 windows-version = "0.1.1"
 winreg = "0.55.0"
+
+# ============ 开发期依赖（基准测试 / 属性测试） ============
+[dev-dependencies]
+# criterion：核心操作的可重复基准测试（C1 / 需求 20）
+criterion = "0.5"
+# proptest：后续属性测试任务（U1/U2/A8/A10/A9 等）所需
+proptest = "1"
+
+# 剪贴板核心操作基准（get_history / search / insert）
+[[bench]]
+name = "clipboard_bench"
+harness = false
 
 # ============ Release 体积优化 ============
 [profile.release]

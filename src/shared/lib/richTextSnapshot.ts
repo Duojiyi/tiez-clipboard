@@ -1,4 +1,5 @@
 import { toTauriLocalImageSrc } from "./localImageSrc";
+import { LruStringCache } from "./lruCache";
 import {
   isHtmlishTagText,
   isOfficeStyleDefinitionText,
@@ -8,17 +9,18 @@ import {
 
 const SNAPSHOT_CACHE_LIMIT = 240;
 const SNAPSHOT_CACHE_VERSION = "v8";
-const snapshotCache = new Map<string, string>();
+// 富文本快照缓存，使用有界 LRU 避免长时间运行内存无界增长（C3 / 需求 22）。
+const snapshotCache = new LruStringCache(SNAPSHOT_CACHE_LIMIT);
 
 const RICH_IMAGE_FALLBACK_PREFIX = "<!--TIEZ_RICH_IMAGE:";
 const RICH_IMAGE_FALLBACK_SUFFIX = "-->";
 
-const trimCache = () => {
-  while (snapshotCache.size > SNAPSHOT_CACHE_LIMIT) {
-    const first = snapshotCache.keys().next();
-    if (first.done) return;
-    snapshotCache.delete(first.value);
-  }
+// 读缓存：命中时 LRU 内部会把条目标记为最近使用。
+const readSnapshotCache = (key: string): string | undefined => snapshotCache.get(key);
+
+// 写缓存：插入并淘汰超限的最旧条目。
+const writeSnapshotCache = (key: string, value: string) => {
+  snapshotCache.set(key, value);
 };
 
 const hashString = (input: string): string => {
@@ -792,7 +794,7 @@ export const getRichTextSnapshotDataUrl = (
     }
 
     const key = `${SNAPSHOT_CACHE_VERSION}:${hashString(sourceHtml)}:${sourceHtml.length}:${width}:${maxHeight}`;
-    const cached = snapshotCache.get(key);
+    const cached = readSnapshotCache(key);
     if (cached) return cached;
 
     const normalized = normalizeRichHtml(sourceHtml);
@@ -813,8 +815,7 @@ export const getRichTextSnapshotDataUrl = (
       maxHeight
     );
     if (tabularDataUrl) {
-      snapshotCache.set(key, tabularDataUrl);
-      trimCache();
+      writeSnapshotCache(key, tabularDataUrl);
       return tabularDataUrl;
     }
 
@@ -897,8 +898,7 @@ export const getRichTextSnapshotDataUrl = (
       return null;
     }
 
-    snapshotCache.set(key, dataUrl);
-    trimCache();
+    writeSnapshotCache(key, dataUrl);
     return dataUrl;
   } catch (error) {
     logSnapshotFailure("unexpected_error", {

@@ -128,6 +128,42 @@
   }
 }
 
+/* 设置面板三大分组 tab 切换栏 */
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 3px 0 6px;
+  border: var(--panel-border);
+  background: var(--bg-panel);
+  border-radius: var(--panel-radius);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: saturate(120%);
+}
+
+.settings-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: calc(var(--panel-radius) - 4px);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.settings-tab:hover {
+  color: var(--text-primary);
+  background: var(--accent-soft);
+}
+
+.settings-tab.active {
+  color: #fff;
+  background: var(--accent-color);
+}
+
 .settings-inline-note {
   font-size: 11px;
   font-weight: 500;
@@ -429,7 +465,7 @@
 
 .advanced-workbench {
   display: grid;
-  grid-template-columns: var(--advanced-sidebar-width, 120px) 4px minmax(0, 1fr);
+  grid-template-columns: var(--advanced-sidebar-width, 148px) 4px minmax(0, 1fr);
   grid-template-rows: 1fr !important;
   flex: 1 !important;
   min-height: 0 !important;
@@ -459,6 +495,21 @@
 
 .advanced-search-input {
   width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  /* 该侧边栏搜索框没有放大镜图标，无需为图标预留 36px 左内边距；
+     恢复常规左内边距，避免窄侧栏（默认 148px）下「搜索应用」占位文字被截断成「搜索应」。 */
+  padding-left: 12px;
+  padding-right: 10px;
+  text-overflow: ellipsis;
+}
+
+.advanced-search-input::placeholder {
+  /* 占位文字略小并允许省略号，作为极窄宽度下的兜底，绝不硬截断 */
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .advanced-search-results {

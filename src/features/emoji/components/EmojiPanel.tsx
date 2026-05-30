@@ -63,6 +63,9 @@ const FALLBACK_GROUPS: EmojiGroup[] = [
 
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "gif"]);
 
+// F4（需求 18.7）：表情数量达到该阈值时给出清理提示，避免磁盘空间不受控增长。
+const EMOJI_COUNT_WARNING_THRESHOLD = 200;
+
 const normalizePath = (path: string) => path.trim();
 
 const isImagePath = (path: string) => {
@@ -178,6 +181,8 @@ const EmojiPanel = ({ t, favorites, setFavorites, activeTab, setActiveTab, saveS
 
   const flatEmoji = useMemo(() => emojiGroups.flatMap((g) => g.emojis), [emojiGroups]);
   const hasFavorites = favorites.length > 0;
+  // F4（需求 18.7）：表情数量达阈值时提示清理
+  const showCountWarning = favorites.length >= EMOJI_COUNT_WARNING_THRESHOLD;
 
   const persistFavorites = (updater: string[] | ((prev: string[]) => string[])) => {
     setFavorites((prev) => {
@@ -196,10 +201,19 @@ const EmojiPanel = ({ t, favorites, setFavorites, activeTab, setActiveTab, saveS
     if (activeTab !== "favorites") return;
 
     let cancelled = false;
-    invoke<string[]>("list_emoji_favorites")
-      .then((diskPaths) => {
+    // 复用同一渲染：将收藏目录（list_emoji_favorites）与用户表情库（list_user_emojis，
+    // 含右键「添加到表情包」存入 emojis/user 的图片）合并展示（需求 18.5）。
+    Promise.all([
+      invoke<string[]>("list_emoji_favorites").catch(() => [] as string[]),
+      invoke<string[]>("list_user_emojis").catch(() => [] as string[]),
+    ])
+      .then(([favPaths, userPaths]) => {
         if (cancelled) return;
-        const merged = dedupeFavoritePaths([...favorites, ...(Array.isArray(diskPaths) ? diskPaths : [])]);
+        const diskPaths = [
+          ...(Array.isArray(favPaths) ? favPaths : []),
+          ...(Array.isArray(userPaths) ? userPaths : []),
+        ];
+        const merged = dedupeFavoritePaths([...favorites, ...diskPaths]);
         const current = dedupeFavoritePaths(favorites);
         if (
           merged.length === current.length &&
@@ -667,6 +681,11 @@ const EmojiPanel = ({ t, favorites, setFavorites, activeTab, setActiveTab, saveS
               )}
               {hasFavorites && (
                 <div className="emoji-fav-tip">{t("emoji_fav_tip") || "可直接拖拽图片添加"}</div>
+              )}
+              {showCountWarning && (
+                <div className="emoji-fav-tip emoji-fav-warning">
+                  {(t("emoji_count_warning") || "表情数量较多（{count} 个），建议清理以节省磁盘空间").replace("{count}", String(favorites.length))}
+                </div>
               )}
               
               <AnimatePresence>

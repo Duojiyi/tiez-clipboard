@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronRight, Edit2, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit2, RotateCcw, Trash2, Bot } from "lucide-react";
 import type { AiProfile, AiProfileStatusMap, EditableAiProfile } from "../../types";
 
 interface AiSettingsGroupProps {
@@ -53,7 +53,9 @@ const AiSettingsGroup = ({
 }: AiSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <div className="group-header" onClick={onToggle}>
+            {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bot size={16} />
                 <h3 style={{ margin: 0 }}>{t('ai_settings')}</h3>
             </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}

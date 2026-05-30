@@ -2,12 +2,12 @@ import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import type { ClipboardEntry } from "../types";
+import type { ClipboardEntry, PushToast } from "../types";
 import type { VirtualClipboardListHandle } from "../../features/clipboard/types";
 
 interface UseClipboardActionsOptions {
   t: (key: string) => string;
-  pushToast: (msg: string, duration?: number) => number;
+  pushToast: PushToast;
   deleteAfterPaste: boolean;
   moveToTopAfterPaste: boolean;
   setSearch: (val: string) => void;
@@ -53,7 +53,7 @@ export const useClipboardActions = ({
         setSearch("");
       } catch (err) {
         const errorMsg = t("copy_failed") + (err?.toString() || "");
-        pushToast(errorMsg, 3000);
+        pushToast(errorMsg, 3000, "error");
       }
     },
     [deleteAfterPaste, moveToTopAfterPaste, pushToast, setHistory, setSearch, t]
@@ -69,7 +69,7 @@ export const useClipboardActions = ({
         });
       } catch (err) {
         const errorMsg = t("open_failed") + (err?.toString() || "");
-        pushToast(errorMsg, 3000);
+        pushToast(errorMsg, 3000, "error");
       }
     },
     [pushToast, t]
@@ -83,7 +83,7 @@ export const useClipboardActions = ({
         setHistory((prev) => prev.filter((item) => item.id !== id));
       } catch (err) {
         const errorMsg = "删除失败: " + (err?.toString() || "");
-        pushToast(errorMsg, 3000);
+        pushToast(errorMsg, 3000, "error");
       }
     },
     [pushToast, setHistory]
@@ -107,7 +107,7 @@ export const useClipboardActions = ({
       } catch (err) {
         const errorMsg =
           (currentPinned ? "取消固定失败" : "固定失败") + ": " + (err?.toString() || "");
-        pushToast(errorMsg, 3000);
+        pushToast(errorMsg, 3000, "error");
       }
     },
     [pushToast, setHistory]

@@ -28,6 +28,10 @@ export const translations = {
         emoji_drop_failed: "未识别到可添加的图片，请尝试拖拽图片本身或先下载到本地",
         emoji_favorites_empty: "暂无收藏",
         emoji_empty: "暂无表情",
+        emoji_add_to: "添加到表情包",
+        emoji_add_success: "已添加到表情包",
+        emoji_add_failed: "添加到表情包失败",
+        emoji_count_warning: "表情数量较多（{count} 个），建议清理以节省磁盘空间",
 
         // Settings - Headers
         general_settings: "常规设置",
@@ -40,6 +44,12 @@ export const translations = {
         appearance_settings: "界面设置",
         file_transfer: "局域网文件传输",
         feedback: "问题反馈",
+
+        // Settings - Tabs（三大分组）
+        settings_tab_common: "常用",
+        settings_tab_sync: "同步",
+        settings_tab_advanced: "高级",
+        settings_reorganized_hint: "设置面板已重组为「常用 / 同步 / 高级」三大分组",
 
         // Settings - General
         autostart: "开机自启动",
@@ -145,6 +155,7 @@ export const translations = {
         sequential_paste_hotkey_label: "顺序粘贴快捷键",
         rich_paste_hotkey_label: "带格式粘贴快捷键",
         search_hotkey_label: "搜索快捷键",
+        sensitive_hotkey_label: "敏感标记快捷键",
         quick_paste_modifier: "数字快速粘贴",
         quick_paste_modifier_hint: "按住所选修饰键再加数字 1-9/0，可直接粘贴第 1-10 个固定项；选择关闭则禁用该功能。",
         quick_paste_modifier_disabled: "关闭",
@@ -152,11 +163,27 @@ export const translations = {
         quick_paste_modifier_alt: "Alt",
         quick_paste_modifier_shift: "Shift",
         quick_paste_modifier_win: "Win",
+        quick_paste_in_app_enabled: "启用数字快捷粘贴",
+        quick_paste_in_app_enabled_hint: "主面板可见时按 Ctrl+1~9 直接粘贴当前列表第 1-9 个条目（仅应用内生效，粘贴后自动隐藏面板）。",
         global_hotkey: "全局快捷键",
+        win_v_takeover: "让 Magpie 接管 Win+V",
+        win_v_takeover_hint: "开启后将释放系统 Win+V 由 Magpie 接管；修改后需手动重启资源管理器才会生效。",
+        win_v_takeover_success: "已设置接管 Win+V，请手动重启资源管理器后生效。",
+        win_v_conflict_prompt: "需要释放系统 Win+V，是否启用接管？",
+        win_v_occupier_detected: "检测到 {app} 占用 Win+V，请先释放后重试。",
         hotkey_recording_hint: "请按快捷键组合，ESC 取消",
         hotkey_click_hint: "点击右侧区域开始录制",
         waiting_for_input: "等待录制...",
         not_set: "未设置",
+        hotkey_scope_label: "作用域",
+        hotkey_scope_hint: "全局：任何时候都生效；仅应用内：仅主面板可见且聚焦时生效；仅后台：仅主面板隐藏时生效。",
+        hotkey_scope_global: "全局",
+        hotkey_scope_in_app_only: "仅应用内",
+        hotkey_scope_background_only: "仅后台",
+        hotkey_scope_reset_label: "快捷键作用域",
+        hotkey_scope_reset_hint: "将所有快捷键的作用域还原为默认值（默认全部为「全局」）。",
+        hotkey_scope_reset_button: "恢复默认",
+        hotkey_scope_reset_success: "已恢复所有快捷键作用域为默认值",
         hotkey_conflict_title: "⚠️ 快捷键冲突说明",
         visual_theme: "界面主题",
         theme_retro: "3D复古",
@@ -168,6 +195,11 @@ export const translations = {
         mode_dark: "深色",
         compact_mode: "紧凑模式",
         compact_mode_hint: "开启后剪贴板列表显示更密集，可容纳更多条目，鼠标悬停可预览",
+        card_density: "卡片密度",
+        card_density_hint: "调整剪贴板列表条目的高度与间距，紧凑可一屏看到更多，宽松更舒适",
+        card_density_compact: "紧凑",
+        card_density_standard: "标准",
+        card_density_loose: "宽松",
 
         emoji_panel_enabled: "表情包开关",
         emoji_panel_enabled_hint: "关闭后隐藏表情包入口",
@@ -296,6 +328,9 @@ export const translations = {
         no_records: "未找到相关记录",
         empty_title: "剪贴板已准备就绪",
         empty_desc: "复制一点内容，记录就会出现在这里",
+        empty_search_desc: "换个关键词试试，或清空搜索查看全部记录",
+        empty_tag_title: "该标签下还没有条目",
+        empty_tag_desc: "在条目上按 T 打标签，归类后会出现在这里",
 
         // Item Actions
         copy: "拷贝",
@@ -349,6 +384,9 @@ export const translations = {
 
         // Errors
         copy_failed: "拷贝失败: ",
+        copy_diagnostics: "复制诊断信息",
+        copy_diagnostics_hint: "收集日志末尾、系统信息与设置摘要（已脱敏）到剪贴板，便于提交反馈，不会上传任何数据",
+        copied: "已复制",
         open_failed: "打开失败: ",
         reset_failed: "重置失败: ",
         autostart_failed: "设置自启动失败: ",
@@ -468,6 +506,9 @@ export const translations = {
         manage_items: "管理条目",
         list_view: "列表视图",
         grid_view: "卡片视图",
+        restart_as_admin: "以管理员身份重启",
+        restart_as_admin_hint: "以管理员权限重启，以便向管理员终端粘贴内容",
+        restart: "重启",
         v028_notice_title: "版本更新提示 (v0.2.8)",
         v028_notice_content: "为了优化 macOS 体验，当前默认快捷键已更改为：主唤起 Option + C、顺序粘贴 Option + V、搜索 Option + F、富文本粘贴 Option + Shift + V。这样可以避免与系统的 Command 键产生冲突。",
         v028_notice_ok: "我知道了",
@@ -503,6 +544,11 @@ export const translations = {
         theme_store_upload_btn: "上传",
         theme_store_zip_only: "请选择 .zip 文件",
         theme_store_file_too_large: "文件过大（最大 5MB）",
+
+        // 更新检查错误分类（不暴露原始英文异常）
+        update_error_dns: "GitHub 暂时无法访问，可能是网络解析（DNS）问题，请检查网络后重试。",
+        update_error_tls: "安全连接（TLS）建立失败，请检查网络或稍后重试。",
+        update_error_generic: "检查更新失败，请稍后重试或前往官网手动下载。",
     },
     en: {
         // App Selector
@@ -530,6 +576,10 @@ export const translations = {
         emoji_drop_failed: "No importable image was detected. Try dragging the image itself or downloading it first.",
         emoji_favorites_empty: "No favorites yet",
         emoji_empty: "No emoji yet",
+        emoji_add_to: "Add to stickers",
+        emoji_add_success: "Added to stickers",
+        emoji_add_failed: "Failed to add to stickers",
+        emoji_count_warning: "You have many stickers ({count}). Consider cleaning up to save disk space.",
         clear_confirm_title: "Clear History",
         clear_confirm_message: "Are you sure you want to clear history? Pinned and tagged items will be preserved.",
 
@@ -544,6 +594,12 @@ export const translations = {
         appearance_settings: "Appearance",
         file_transfer: "LAN File Transfer",
         feedback: "Feedback",
+
+        // Settings - Tabs (three groups)
+        settings_tab_common: "Common",
+        settings_tab_sync: "Sync",
+        settings_tab_advanced: "Advanced",
+        settings_reorganized_hint: "Settings have been reorganized into Common / Sync / Advanced tabs",
 
         // Settings - General
         autostart: "Launch at Startup",
@@ -649,6 +705,7 @@ export const translations = {
         sequential_paste_hotkey_label: "Sequential Paste Hotkey",
         rich_paste_hotkey_label: "Paste with Format Hotkey",
         search_hotkey_label: "Search Hotkey",
+        sensitive_hotkey_label: "Sensitive Mark Hotkey",
         quick_paste_modifier: "Number Quick Paste",
         quick_paste_modifier_hint: "Hold the selected modifier with 1-9/0 to paste the 1st-10th pinned item directly. Choose Disabled to turn this off.",
         quick_paste_modifier_disabled: "Disabled",
@@ -656,7 +713,14 @@ export const translations = {
         quick_paste_modifier_alt: "Alt",
         quick_paste_modifier_shift: "Shift",
         quick_paste_modifier_win: "Win",
+        quick_paste_in_app_enabled: "Enable Number Quick Paste",
+        quick_paste_in_app_enabled_hint: "When the main panel is visible, press Ctrl+1~9 to paste the 1st-9th item in the current list directly (in-app only; the panel hides after pasting).",
         global_hotkey: "Global Hotkey",
+        win_v_takeover: "Let Magpie take over Win+V",
+        win_v_takeover_hint: "Releases the system Win+V so Magpie can use it. Restart Explorer manually for the change to take effect.",
+        win_v_takeover_success: "Win+V takeover set. Restart Explorer manually to apply.",
+        win_v_conflict_prompt: "The system Win+V needs to be released. Enable takeover?",
+        win_v_occupier_detected: "{app} is using Win+V. Please release it and try again.",
         hotkey_recording_hint: "Press keys, ESC to cancel",
         hotkey_click_hint: "Click to record",
         tag_management: "Tag Management",
@@ -669,6 +733,15 @@ export const translations = {
         no_tags: "No tags found",
         waiting_for_input: "Recording...",
         not_set: "Not Set",
+        hotkey_scope_label: "Scope",
+        hotkey_scope_hint: "Global: always active. In-app only: active only when the main panel is visible and focused. Background only: active only when the main panel is hidden.",
+        hotkey_scope_global: "Global",
+        hotkey_scope_in_app_only: "In-app only",
+        hotkey_scope_background_only: "Background only",
+        hotkey_scope_reset_label: "Hotkey scopes",
+        hotkey_scope_reset_hint: "Restore the scope of every hotkey to its default value (all default to Global).",
+        hotkey_scope_reset_button: "Restore defaults",
+        hotkey_scope_reset_success: "All hotkey scopes restored to defaults",
         hotkey_conflict_title: "⚠️ Hotkey Conflict",
         visual_theme: "Visual Theme",
         theme_retro: "Retro 3D",
@@ -680,6 +753,11 @@ export const translations = {
         mode_dark: "Dark",
         compact_mode: "Compact Mode",
         compact_mode_hint: "When enabled, clipboard list displays more densely with more entries visible. Hover to preview.",
+        card_density: "Card Density",
+        card_density_hint: "Adjust the height and spacing of clipboard list items. Compact fits more on screen, loose is more comfortable.",
+        card_density_compact: "Compact",
+        card_density_standard: "Standard",
+        card_density_loose: "Loose",
 
         emoji_panel_enabled: "Stickers Toggle",
         emoji_panel_enabled_hint: "Hide the stickers entry when disabled.",
@@ -808,6 +886,9 @@ export const translations = {
         no_records: "No records found",
         empty_title: "Clipboard is ready",
         empty_desc: "Copy something and it will appear here",
+        empty_search_desc: "Try a different keyword, or clear the search to see everything",
+        empty_tag_title: "No items under this tag yet",
+        empty_tag_desc: "Press T on an item to tag it; tagged items show up here",
 
         // Item Actions
         copy: "Copy",
@@ -860,6 +941,9 @@ export const translations = {
 
         // Errors
         copy_failed: "Copy failed: ",
+        copy_diagnostics: "Copy diagnostics",
+        copy_diagnostics_hint: "Collect recent logs, system info and a settings summary (redacted) to the clipboard for feedback. No data is uploaded.",
+        copied: "Copied",
         open_failed: "Open failed: ",
         reset_failed: "Reset failed: ",
         autostart_failed: "Autostart setup failed: ",
@@ -1009,6 +1093,11 @@ export const translations = {
         theme_store_upload_btn: "Upload",
         theme_store_zip_only: "Please select a .zip file",
         theme_store_file_too_large: "File too large (max 5MB)",
+
+        // Update check error classification (never expose the raw English exception)
+        update_error_dns: "GitHub is temporarily unreachable, possibly a network resolution (DNS) issue. Please check your network and try again.",
+        update_error_tls: "Failed to establish a secure connection (TLS). Please check your network or try again later.",
+        update_error_generic: "Failed to check for updates. Please try again later or download manually from the website.",
     },
     tw: {
         // App Selector
@@ -1036,6 +1125,10 @@ export const translations = {
         emoji_drop_failed: "未識別到可新增的圖片，請嘗試拖拽圖片本身或先下載到本地",
         emoji_favorites_empty: "暫無收藏",
         emoji_empty: "暫無表情",
+        emoji_add_to: "新增到表情包",
+        emoji_add_success: "已新增到表情包",
+        emoji_add_failed: "新增到表情包失敗",
+        emoji_count_warning: "表情數量較多（{count} 個），建議清理以節省磁碟空間",
 
         // Settings - Headers
         general_settings: "常規設定",
@@ -1048,6 +1141,12 @@ export const translations = {
         appearance_settings: "界面設定",
         file_transfer: "區域網路檔案傳輸",
         feedback: "問題回饋",
+
+        // Settings - Tabs（三大分組）
+        settings_tab_common: "常用",
+        settings_tab_sync: "同步",
+        settings_tab_advanced: "進階",
+        settings_reorganized_hint: "設定面板已重組為「常用 / 同步 / 進階」三大分組",
 
         // Settings - General
         autostart: "開機自啟動",
@@ -1153,6 +1252,7 @@ export const translations = {
         sequential_paste_hotkey_label: "順序貼上快速鍵",
         rich_paste_hotkey_label: "帶格式貼上快速鍵",
         search_hotkey_label: "搜尋快速鍵",
+        sensitive_hotkey_label: "敏感標記快速鍵",
         quick_paste_modifier: "數字快速貼上",
         quick_paste_modifier_hint: "按住所選修飾鍵再加數字 1-9/0，可直接貼上第 1-10 個固定項；選擇關閉則停用此功能。",
         quick_paste_modifier_disabled: "關閉",
@@ -1160,11 +1260,27 @@ export const translations = {
         quick_paste_modifier_alt: "Alt",
         quick_paste_modifier_shift: "Shift",
         quick_paste_modifier_win: "Win",
+        quick_paste_in_app_enabled: "啟用數字快捷貼上",
+        quick_paste_in_app_enabled_hint: "主面板可見時按 Ctrl+1~9 直接貼上目前列表第 1-9 個項目（僅應用程式內生效，貼上後自動隱藏面板）。",
         global_hotkey: "全域快速鍵",
+        win_v_takeover: "讓 Magpie 接管 Win+V",
+        win_v_takeover_hint: "開啟後會釋放系統 Win+V 由 Magpie 接管；修改後需手動重新啟動檔案總管才會生效。",
+        win_v_takeover_success: "已設定接管 Win+V，請手動重新啟動檔案總管後生效。",
+        win_v_conflict_prompt: "需要釋放系統 Win+V，是否啟用接管？",
+        win_v_occupier_detected: "偵測到 {app} 佔用 Win+V，請先釋放後重試。",
         hotkey_recording_hint: "請按快速鍵組合，ESC 取消",
         hotkey_click_hint: "點擊右側區域開始錄製",
         waiting_for_input: "等待錄製...",
         not_set: "未設置",
+        hotkey_scope_label: "作用域",
+        hotkey_scope_hint: "全域：任何時候都生效；僅應用內：僅主面板可見且聚焦時生效；僅背景：僅主面板隱藏時生效。",
+        hotkey_scope_global: "全域",
+        hotkey_scope_in_app_only: "僅應用內",
+        hotkey_scope_background_only: "僅背景",
+        hotkey_scope_reset_label: "快速鍵作用域",
+        hotkey_scope_reset_hint: "將所有快速鍵的作用域還原為預設值（預設全部為「全域」）。",
+        hotkey_scope_reset_button: "恢復預設",
+        hotkey_scope_reset_success: "已恢復所有快速鍵作用域為預設值",
         hotkey_conflict_title: "⚠️ 快捷鍵衝突說明",
         visual_theme: "界面主題",
         theme_retro: "3D復古",
@@ -1176,6 +1292,11 @@ export const translations = {
         mode_dark: "深色",
         compact_mode: "緊湊模式",
         compact_mode_hint: "啟用後剪貼簿列表顯示更密集，可容納更多條目，滑鼠懸停可預覽",
+        card_density: "卡片密度",
+        card_density_hint: "調整剪貼簿列表條目的高度與間距，緊湊可一屏看到更多，寬鬆更舒適",
+        card_density_compact: "緊湊",
+        card_density_standard: "標準",
+        card_density_loose: "寬鬆",
 
         emoji_panel_enabled: "表情包開關",
         emoji_panel_enabled_hint: "關閉後隱藏表情包入口",
@@ -1303,6 +1424,9 @@ export const translations = {
         no_records: "未找到相關紀錄",
         empty_title: "剪貼簿已準備就緒",
         empty_desc: "複製一些內容，記錄就會出現在這裡",
+        empty_search_desc: "換個關鍵字試試，或清空搜尋查看全部紀錄",
+        empty_tag_title: "該標籤下還沒有條目",
+        empty_tag_desc: "在條目上按 T 打標籤，歸類後會出現在這裡",
 
         // Item Actions
         copy: "複製",
@@ -1356,6 +1480,9 @@ export const translations = {
 
         // Errors
         copy_failed: "複製失敗: ",
+        copy_diagnostics: "複製診斷資訊",
+        copy_diagnostics_hint: "收集日誌結尾、系統資訊與設定摘要（已脫敏）到剪貼簿，便於提交回饋，不會上傳任何資料",
+        copied: "已複製",
         open_failed: "開啟失敗: ",
         reset_failed: "重置失敗: ",
         autostart_failed: "設定自啟動失敗: ",
@@ -1475,6 +1602,9 @@ export const translations = {
         manage_items: "管理條目",
         list_view: "列表視圖",
         grid_view: "卡片視圖",
+        restart_as_admin: "以管理員身份重啟",
+        restart_as_admin_hint: "以管理員權限重啟，以便向管理員終端貼上內容",
+        restart: "重啟",
         v028_notice_title: "版本更新提示 (v0.2.8)",
         v028_notice_content: "為了優化 macOS 體驗，目前預設快速鍵為：主喚起 Option + C、順序貼上 Option + V、富文本貼上 Option + Shift + V、搜尋 Option + F。",
         v028_notice_ok: "我知道了",
@@ -1510,5 +1640,10 @@ export const translations = {
         theme_store_upload_btn: "上傳",
         theme_store_zip_only: "請選擇 .zip 檔案",
         theme_store_file_too_large: "檔案過大（最大 5MB）",
+
+        // 更新檢查錯誤分類（不暴露原始英文異常）
+        update_error_dns: "GitHub 暫時無法存取，可能是網路解析（DNS）問題，請檢查網路後重試。",
+        update_error_tls: "安全連線（TLS）建立失敗，請檢查網路或稍後重試。",
+        update_error_generic: "檢查更新失敗，請稍後重試或前往官網手動下載。",
     }
 };

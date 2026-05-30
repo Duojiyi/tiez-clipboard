@@ -2,7 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useState, useMemo, memo } from "rea
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { currentMonitor, getCurrentWindow, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
+import { listen, emit } from "@tauri-apps/api/event";
 import {
     Pin,
     PinOff,
@@ -27,7 +27,9 @@ import {
     Files,
     ImageOff,
     FileQuestion,
-    GripVertical
+    GripVertical,
+    ShieldAlert,
+    Smile
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ClipboardItemProps } from "../types";
@@ -43,6 +45,7 @@ import { getRichTextSnapshotDataUrl } from "../../../shared/lib/richTextSnapshot
 import { getFileIcon as getSystemFileIcon, peekFileIcon } from "../../../shared/lib/fileIcon";
 import { getSourceAppIcon, peekSourceAppIcon } from "../../../shared/lib/sourceAppIcon";
 import { registerCompactPreviewControls } from "../lib/compactPreviewControls";
+import { hasSensitiveTag, clipboardItemClassName } from "../lib/sensitiveTag";
 
 const COMPACT_PREVIEW_LABEL = "compact-preview";
 const RICH_IMAGE_FALLBACK_PREFIX = "<!--TIEZ_RICH_IMAGE:";
@@ -724,6 +727,8 @@ const ClipboardItem = ({
     const [localAiOptionsOpen, setLocalAiOptionsOpen] = useState(!!aiOptionsOpen);
     const [snapshotFailed, setSnapshotFailed] = useState(false);
     const [richImageFallbackFailed, setRichImageFallbackFailed] = useState(false);
+    // 图片条目右键菜单（F4，需求 18.1）：记录菜单屏幕坐标，null 表示未展开
+    const [imageMenuPos, setImageMenuPos] = useState<{ x: number; y: number } | null>(null);
     const [sourceAppIcon, setSourceAppIcon] = useState<string | null>(() => peekSourceAppIcon(item.source_app_path) ?? null);
     const filePaths = useMemo(
         () => item.content_type === "file" ? item.content.split('\n').filter((p) => p.trim()) : [],
@@ -880,6 +885,8 @@ const ClipboardItem = ({
     const visibleTagCount = item.tags?.length || 0;
     const hasTagsSection = visibleTagCount > 0 || isEditingTags;
     const overlayTagsInPreview = !compactMode && !isEditingTags && visibleTagCount > 0;
+    // 带敏感标签的条目用色块/图标视觉强调（需求 17.2）
+    const isSensitive = hasSensitiveTag(item.tags);
     const standaloneColorValue = useMemo(
         () => getStandaloneColorValue(item.content_type, item.content),
         [item.content, item.content_type]
@@ -980,6 +987,24 @@ const ClipboardItem = ({
     const hideCompactPreview = async () => {
         cancelHoverPreview();
         await hideCompactPreviewGlobal();
+    };
+
+    // F4（需求 18.1/18.2）：将当前图片条目添加到用户表情库。
+    // item.content 对图片条目为本地附件路径（非 data: 前缀）；后端 add_image_to_emoji 读取该路径存入 emojis/user/。
+    const handleAddImageToEmoji = async () => {
+        setImageMenuPos(null);
+        const source = item.content;
+        if (!source || source.startsWith("data:")) {
+            emit("toast", { msg: t("emoji_add_failed") || "添加到表情包失败", variant: "error" }).catch(() => { });
+            return;
+        }
+        try {
+            await invoke<string>("add_image_to_emoji", { source });
+            emit("toast", { msg: t("emoji_add_success") || "已添加到表情包", variant: "success" }).catch(() => { });
+        } catch (err) {
+            console.error("添加到表情包失败:", err);
+            emit("toast", { msg: t("emoji_add_failed") || "添加到表情包失败", variant: "error" }).catch(() => { });
+        }
     };
 
     const showCompactPreview = async (anchor: CompactPreviewAnchor, requestId: number) => {
@@ -1500,7 +1525,7 @@ const ClipboardItem = ({
             animate={{ marginBottom: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.1 }}
-            className={`history-item ${isSelected ? "selected" : ""} ${compactMode ? "compact" : ""} ${item.is_pinned ? "pinned" : ""} ${className || ''}`}
+            className={`${clipboardItemClassName({ isSelected, compactMode: !!compactMode, isPinned: item.is_pinned, tags: item.tags })}${className ? ` ${className}` : ''}`}
             onMouseDown={(e) => {
                 const target = e.target as HTMLElement;
                 if (e.button !== 0) return;
@@ -1562,6 +1587,13 @@ const ClipboardItem = ({
                 // Prevent link navigation on right-click too
                 if (target.closest('a')) {
                     e.stopPropagation();
+                }
+                // 图片条目右键弹出操作菜单（F4，需求 18.1：「添加到表情包」），其余类型保持原有「格式化复制」行为
+                if (item.content_type === "image") {
+                    e.stopPropagation();
+                    onSelect();
+                    setImageMenuPos({ x: e.clientX, y: e.clientY });
+                    return;
                 }
                 onCopy(true); // Formatted text for right-click
 
@@ -1632,6 +1664,13 @@ const ClipboardItem = ({
                     )}
                     <div className="app-info">
                         {item.is_pinned && !dragControls && <Pin size={10} style={{ color: 'var(--accent-color)', marginRight: '-2px' }} />}
+                        {isSensitive && (
+                            <ShieldAlert
+                                size={12}
+                                className="sensitive-badge"
+                                aria-label={t('reveal')}
+                            />
+                        )}
                         {showSourceAppIcon
                             ? renderSourceAppIcon(sourceAppIcon, item.content_type, item.source_app)
                             : getIcon(item.content_type)}
@@ -1641,7 +1680,7 @@ const ClipboardItem = ({
 
                 <div className="item-meta-right">
                     <div className="item-actions">
-                        {(item.tags?.includes('sensitive') || item.tags?.includes('密码') || item.tags?.includes('password')) && (
+                        {hasSensitiveTag(item.tags) && (
                             <button
                                 className={`btn-icon ${isRevealed ? "active" : ""}`}
                                 onClick={onToggleReveal}
@@ -1973,6 +2012,37 @@ const ClipboardItem = ({
             </AnimatePresence>
 
             {!overlayTagsInPreview && hasTagsSection && renderTagsContainer()}
+
+            {/* F4（需求 18.1）：图片条目右键菜单 —— 添加到表情包 */}
+            <AnimatePresence>
+                {imageMenuPos && (
+                    <>
+                        {/* 点击遮罩关闭菜单（覆盖全屏，捕获任意点击/右键） */}
+                        <div
+                            style={{ position: "fixed", inset: 0, zIndex: 9999 }}
+                            onClick={(e) => { e.stopPropagation(); setImageMenuPos(null); }}
+                            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setImageMenuPos(null); }}
+                        />
+                        <motion.div
+                            className="wt-context-menu"
+                            style={{ left: imageMenuPos.x, top: imageMenuPos.y }}
+                            initial={{ opacity: 0, scale: 0.98, y: -5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.98, y: -5 }}
+                            transition={{ duration: 0.12 }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div
+                                className="context-item"
+                                onClick={(e) => { e.stopPropagation(); void handleAddImageToEmoji(); }}
+                            >
+                                <Smile size={14} />
+                                <span>{t("emoji_add_to") || "添加到表情包"}</span>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </motion.div >
     );
 };

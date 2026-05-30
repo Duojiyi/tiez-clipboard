@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ChevronDown, ChevronRight, HelpCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, HelpCircle, Send } from "lucide-react";
 import { motion } from "framer-motion";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -59,7 +59,11 @@ const FileTransferSettingsGroup = ({
 }: FileTransferSettingsGroupProps) => (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <div className="group-header" onClick={onToggle}>
-            <h3 style={{ margin: 0 }}>{t('file_transfer')}</h3>
+            {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Send size={16} />
+                <h3 style={{ margin: 0 }}>{t('file_transfer')}</h3>
+            </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </div>
         {!collapsed && (

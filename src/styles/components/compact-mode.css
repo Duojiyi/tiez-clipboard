@@ -661,3 +661,48 @@ html.theme-acrylic .history-item.compact {
     padding-bottom: 1px !important;
     border-radius: 10px !important;
 }
+
+/* ============================================================
+ * 卡片密度三档（V5 / 需求 32）
+ * body 上挂 density-compact / density-standard / density-loose，
+ * 调整列表条目的高度（padding）与间距（margin）。
+ * standard 为默认基线（不覆盖既有样式）；compact 更密集、loose 更宽松。
+ * 与 compactMode（紧凑模式）协调：紧凑模式仍以其自身更密集布局为基础，
+ * density 仅在此之上微调上下间距，避免两套机制冲突。
+ * ============================================================ */
+
+/* 紧凑档：收紧普通卡片的内边距与卡片间距，一屏看到更多条目 */
+body.density-compact .history-item {
+    padding: 6px 12px 5px 12px;
+    margin-bottom: 1px;
+}
+
+/* 紧凑档下普通卡片的内容预览限制为 3 行，减少单卡高度 */
+body.density-compact .history-item:not(.compact) .content-preview {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+}
+
+/* 紧凑档叠加紧凑模式：进一步压缩上下内边距 */
+body.density-compact .history-item.compact {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+}
+
+/* 宽松档：放大普通卡片的内边距与卡片间距，阅读更舒适 */
+body.density-loose .history-item {
+    padding: 14px 14px 12px 14px;
+    margin-bottom: 6px;
+}
+
+/* 宽松档下普通卡片的内容预览放宽到 6 行 */
+body.density-loose .history-item:not(.compact) .content-preview {
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+}
+
+/* 宽松档叠加紧凑模式：在紧凑布局基础上略微增加上下内边距 */
+body.density-loose .history-item.compact {
+    padding-top: 8px !important;
+    padding-bottom: 6px !important;
+}

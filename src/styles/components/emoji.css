@@ -271,6 +271,13 @@
   opacity: 0.7;
 }
 
+/* F4（需求 18.7）：表情数量超阈值的清理提示，用警示色强调 */
+.emoji-fav-warning {
+  color: var(--warning-color, #d97706);
+  opacity: 0.9;
+  margin-top: 6px;
+}
+
 /* Drop Overlay - Ultra Minimalist */
 .drop-overlay {
   position: absolute;

@@ -387,7 +387,23 @@ impl SqliteClipboardRepository {
         }
 
         if entry.id > 0 {
-            // Update existing entry (Move to top logic)
+            // 去重命中已有条目的合并 UPDATE（"移到顶部"逻辑），保证重复合并时数据无损：
+            // - 保留已有标签：本次传入标签为空时沿用 DB 已有标签，绝不以空集覆盖（U2.1）
+            // - use_count 求和：旧使用次数 + 新捕获使用次数（U2.6）
+            // - 保留置顶：旧条目或新捕获条目任一置顶则结果置顶；已置顶则保留其 pinned_order（U2.7）
+            let final_tags: Vec<String> = if cleaned_tags.is_empty() {
+                let existing_json: String = conn
+                    .query_row(
+                        "SELECT tags FROM clipboard_history WHERE id = ?1",
+                        params![entry.id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or_else(|_| "[]".to_string());
+                serde_json::from_str(&existing_json).unwrap_or_default()
+            } else {
+                cleaned_tags
+            };
+
             conn.execute(
                 "UPDATE clipboard_history SET 
                     content_type = ?1, 
@@ -400,8 +416,10 @@ impl SqliteClipboardRepository {
                     tags = ?8, 
                     is_external = ?9,
                     source_app_path = ?10,
-                    use_count = use_count + 1
-                 WHERE id = ?11",
+                    use_count = use_count + ?11,
+                    pinned_order = CASE WHEN is_pinned = 1 THEN pinned_order ELSE ?12 END,
+                    is_pinned = MAX(is_pinned, ?13)
+                 WHERE id = ?14",
                 params![
                     entry.content_type,
                     content,
@@ -410,14 +428,17 @@ impl SqliteClipboardRepository {
                     entry.timestamp,
                     preview,
                     content_hash,
-                    serde_json::to_string(&cleaned_tags).unwrap_or_else(|_| "[]".to_string()),
+                    serde_json::to_string(&final_tags).unwrap_or_else(|_| "[]".to_string()),
                     if final_is_external { 1 } else { 0 },
                     entry.source_app_path.as_deref(),
+                    entry.use_count,
+                    entry.pinned_order,
+                    if entry.is_pinned { 1 } else { 0 },
                     entry.id
                 ],
             )
             .map_err(|e| e.to_string())?;
-            self.sync_entry_tags_with_conn(conn, entry.id, &cleaned_tags)?;
+            self.sync_entry_tags_with_conn(conn, entry.id, &final_tags)?;
             Ok(entry.id)
         } else {
             // Insert new entry
@@ -1313,5 +1334,311 @@ impl ClipboardRepository for SqliteClipboardRepository {
     ) -> Result<Option<(String, String, Option<String>)>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         self.get_entry_content_with_html_with_conn(&conn, id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// 创建内存测试数据库，建表结构与生产 schema 关键列对齐
+    fn setup_test_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE clipboard_history (
+                id INTEGER PRIMARY KEY,
+                content_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                html_content TEXT,
+                source_app TEXT NOT NULL,
+                source_app_path TEXT,
+                timestamp INTEGER NOT NULL,
+                preview TEXT NOT NULL,
+                is_pinned INTEGER NOT NULL DEFAULT 0,
+                content_hash INTEGER NOT NULL DEFAULT 0,
+                tags TEXT NOT NULL DEFAULT '[]',
+                use_count INTEGER NOT NULL DEFAULT 0,
+                is_external INTEGER NOT NULL DEFAULT 0,
+                pinned_order INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE entry_tags (
+                entry_id INTEGER NOT NULL,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (entry_id, tag)
+            );
+            CREATE TABLE cloud_sync_tombstones (
+                content_type TEXT NOT NULL,
+                content_hash INTEGER NOT NULL,
+                deleted_at INTEGER NOT NULL,
+                PRIMARY KEY (content_type, content_hash)
+            );
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+        )
+        .unwrap();
+        conn
+    }
+
+    /// 构造一条文本类型 ClipboardEntry
+    fn make_text_entry(id: i64, content: &str, tags: Vec<String>) -> ClipboardEntry {
+        ClipboardEntry {
+            id,
+            content_type: "text".to_string(),
+            content: content.to_string(),
+            html_content: None,
+            source_app: "test".to_string(),
+            source_app_path: None,
+            timestamp: 1_000 + id,
+            preview: content.chars().take(20).collect(),
+            is_pinned: false,
+            tags,
+            use_count: 0,
+            is_external: false,
+            pinned_order: 0,
+            file_preview_exists: true,
+        }
+    }
+
+    /// 创建一个仅用于持有连接句柄的仓储；save_with_conn 实际操作传入的 conn，
+    /// 因此内部连接句柄不参与本测试
+    fn make_repo() -> SqliteClipboardRepository {
+        SqliteClipboardRepository::new(Arc::new(Mutex::new(Connection::open_in_memory().unwrap())))
+    }
+
+    /// 读取某条目当前的 tags JSON 列并反序列化为 Vec
+    fn read_tags_json(conn: &Connection, id: i64) -> Vec<String> {
+        let json: String = conn
+            .query_row(
+                "SELECT tags FROM clipboard_history WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        serde_json::from_str(&json).unwrap()
+    }
+
+    /// 读取 entry_tags 关联表中某条目的全部标签
+    fn read_entry_tag_associations(conn: &Connection, id: i64) -> Vec<String> {
+        let mut stmt = conn
+            .prepare("SELECT tag FROM entry_tags WHERE entry_id = ?1")
+            .unwrap();
+        let rows = stmt
+            .query_map(params![id], |r| r.get::<_, String>(0))
+            .unwrap();
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
+    // Feature: magpie-v0-4-1, Property 4: 标签合并并集往返一致性
+    //
+    // 对任意「单条标签数 0~50、合并序列长度 1~100」的重复内容合并序列，合并结果条目的
+    // 标签集合应恰好等于各参与条目标签集合的并集——既不丢失任一参与标签，也不产生重复
+    // 标签关联（两个标签当且仅当标签名逐字节完全相同方视为同一标签）。
+    //
+    // merge_tags_union 在 pipeline.rs 为私有，无法直接调用；此处以等价方式验证并集语义：
+    // 完整复现生产去重合并链路——每次"重复命中"读出已有标签、与新捕获标签拼接后交由真实
+    // 的 save_with_conn 去重落库，最终校验存储结果（tags JSON 列与 entry_tags 关联表）
+    // 恰好等于全部参与标签的集合并集。
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+        #[test]
+        fn prop_tag_merge_union_round_trip(
+            // 序列长度 1~12（落在需求的 1~100 区间内），每条 0~8 个标签（落在 0~50 内）
+            // 标签取自小字母表以制造大量重叠，充分检验去重并集语义
+            seq in proptest::collection::vec(
+                proptest::collection::vec("[a-z]{1,4}", 0..=8),
+                1..=12,
+            )
+        ) {
+            let conn = setup_test_db();
+            let repo = make_repo();
+
+            // 独立"预言"：全部参与条目标签的逐字节集合并集
+            let mut oracle: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for item in &seq {
+                for tag in item {
+                    oracle.insert(tag.clone());
+                }
+            }
+
+            // 复现去重合并序列：首条 INSERT，其余每条读出已有标签后并集 UPDATE
+            let mut id: i64 = 0;
+            for (i, item_tags) in seq.iter().enumerate() {
+                if i == 0 {
+                    let entry = make_text_entry(0, "dup-content", item_tags.clone());
+                    id = repo.save_with_conn(&conn, &entry, None).unwrap();
+                } else {
+                    let existing = read_tags_json(&conn, id);
+                    let mut combined = existing;
+                    combined.extend(item_tags.clone());
+                    let entry = make_text_entry(id, "dup-content", combined);
+                    repo.save_with_conn(&conn, &entry, None).unwrap();
+                }
+            }
+
+            // 校验 tags JSON 列：集合等于并集，且无重复（向量长度等于集合大小）
+            let final_tags = read_tags_json(&conn, id);
+            let final_set: std::collections::HashSet<String> =
+                final_tags.iter().cloned().collect();
+            prop_assert_eq!(
+                final_set.clone(),
+                oracle.clone(),
+                "tags JSON 列应等于全部参与标签的并集"
+            );
+            prop_assert_eq!(
+                final_tags.len(),
+                oracle.len(),
+                "tags JSON 列不应包含重复标签"
+            );
+
+            // 校验 entry_tags 关联表：每个不同标签恰好关联一次（集合等于并集）
+            let assoc = read_entry_tag_associations(&conn, id);
+            let assoc_set: std::collections::HashSet<String> = assoc.iter().cloned().collect();
+            prop_assert_eq!(
+                assoc_set,
+                oracle,
+                "entry_tags 关联应等于全部参与标签的并集"
+            );
+            prop_assert_eq!(
+                assoc.len(),
+                final_tags.len(),
+                "每个不同标签在结果条目上应恰好关联一次"
+            );
+        }
+    }
+
+    // Feature: magpie-v0-4-1, Property 5: 合并数值不变量（计数求和与置顶保留）
+    //
+    // 对任意参与重复内容合并的条目集合，合并结果条目的使用次数（use_count）应等于各参与
+    // 条目使用次数之和；且当且仅当至少一个参与条目处于置顶（pinned）状态时，合并结果条目
+    // 处于置顶状态。同时验证：已有条目置顶时其 pinned_order 在后续合并中得到保留。
+    //
+    // 直接驱动 save_with_conn 的 id>0 UPDATE 分支：先以原始 SQL 播种一条带初始 use_count /
+    // is_pinned / pinned_order 的已有条目，再依次以"新捕获"条目合并，最终校验数值不变量。
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+        #[test]
+        fn prop_merge_numeric_invariants(
+            init_use_count in 0i32..=1000,
+            init_pinned in any::<bool>(),
+            init_pinned_order in 0i64..=100,
+            // 每次合并的新捕获条目：使用次数、是否置顶、置顶序
+            incoming in proptest::collection::vec(
+                (0i32..=1000, any::<bool>(), 0i64..=100),
+                1..=12,
+            )
+        ) {
+            let conn = setup_test_db();
+            let repo = make_repo();
+
+            // 播种已有条目（携带初始数值），模拟去重命中的"保留条目"
+            conn.execute(
+                "INSERT INTO clipboard_history
+                    (content_type, content, source_app, timestamp, preview,
+                     is_pinned, content_hash, tags, use_count, is_external, pinned_order)
+                 VALUES ('text', 'dup-content', 'seed', 100, 'dup', ?1, 0, '[]', ?2, 0, ?3)",
+                params![init_pinned as i32, init_use_count, init_pinned_order],
+            )
+            .unwrap();
+            let id = conn.last_insert_rowid();
+
+            // 依次合并新捕获条目
+            for (idx, (uc, pin, po)) in incoming.iter().enumerate() {
+                let mut entry = make_text_entry(id, "dup-content", vec![]);
+                entry.timestamp = 200 + idx as i64;
+                entry.use_count = *uc;
+                entry.is_pinned = *pin;
+                entry.pinned_order = *po;
+                repo.save_with_conn(&conn, &entry, None).unwrap();
+            }
+
+            // 读回合并结果数值
+            let (final_uc, final_pinned, final_po): (i64, i32, i64) = conn
+                .query_row(
+                    "SELECT use_count, is_pinned, pinned_order FROM clipboard_history WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .unwrap();
+
+            // 不变量 1：use_count 等于各参与条目（初始 + 全部新捕获）使用次数之和
+            let expected_sum: i64 =
+                init_use_count as i64 + incoming.iter().map(|(uc, _, _)| *uc as i64).sum::<i64>();
+            prop_assert_eq!(
+                final_uc,
+                expected_sum,
+                "合并结果 use_count 应等于各参与条目使用次数之和"
+            );
+
+            // 不变量 2：当且仅当任一参与条目置顶时，结果置顶
+            let expected_pinned = init_pinned || incoming.iter().any(|(_, pin, _)| *pin);
+            prop_assert_eq!(
+                final_pinned == 1,
+                expected_pinned,
+                "当且仅当存在置顶参与条目时合并结果才置顶"
+            );
+
+            // 不变量 3：已有条目初始即置顶时，其 pinned_order 在合并中得到保留
+            if init_pinned {
+                prop_assert_eq!(
+                    final_po,
+                    init_pinned_order,
+                    "已置顶条目的 pinned_order 应在合并中保留"
+                );
+            }
+        }
+    }
+
+    // 任务 2.4（需求 11.5）：去重命中时更新已有条目，不新建独立重复条目
+    //
+    // 验证：当新捕获内容命中一条已有条目时，以该已有条目为保留条目执行 UPDATE
+    // （更新最近使用时间 / 提升排序位置），条目总数不增加，不产生重复条目。
+    #[test]
+    fn dedup_hit_updates_existing_entry_without_creating_duplicate() {
+        let conn = setup_test_db();
+        let repo = SqliteClipboardRepository::new(Arc::new(Mutex::new(conn)));
+
+        // 先写入两条不同内容：A（较旧）、B（较新，位于列表顶部）
+        let mut entry_a = make_text_entry(0, "content-A", vec![]);
+        entry_a.timestamp = 100;
+        let id_a = repo.save(&entry_a, None).unwrap();
+
+        let mut entry_b = make_text_entry(0, "content-B", vec![]);
+        entry_b.timestamp = 200;
+        let _id_b = repo.save(&entry_b, None).unwrap();
+
+        assert_eq!(repo.get_count().unwrap(), 2, "初始应有两条条目");
+        let history = repo.get_history(10, 0, None).unwrap();
+        assert_eq!(history[0].content, "content-B", "较新的 B 应位于列表顶部");
+
+        // 模拟再次复制 A：去重命中已有条目 id_a（pipeline 会将 entry.id 设为命中 id）
+        let hit_id = repo
+            .get_entry_by_content("content-A", Some("text"))
+            .unwrap()
+            .expect("应命中已有条目 A");
+        assert_eq!(hit_id, id_a, "去重应命中已有的 A 条目");
+
+        let mut recapture = make_text_entry(hit_id, "content-A", vec![]);
+        recapture.timestamp = 300; // 更新的最近使用时间
+        repo.save(&recapture, None).unwrap();
+
+        // 不应新建条目：总数仍为 2
+        assert_eq!(
+            repo.get_count().unwrap(),
+            2,
+            "去重命中应更新已有条目，不新建重复条目"
+        );
+
+        // 已有条目的最近使用时间应被更新，并因更新而提升到列表顶部
+        let updated = repo
+            .get_entry_by_id(id_a)
+            .unwrap()
+            .expect("A 条目应仍存在");
+        assert_eq!(updated.timestamp, 300, "应更新已有条目的最近使用时间");
+
+        let history_after = repo.get_history(10, 0, None).unwrap();
+        assert_eq!(
+            history_after[0].id, id_a,
+            "更新后的 A 应提升到列表顶部"
+        );
     }
 }

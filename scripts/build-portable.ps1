@@ -39,6 +39,10 @@ Copy-Item (Join-Path $repoRoot 'README.zh-CN.md')    (Join-Path $stage 'README.z
 Copy-Item (Join-Path $repoRoot 'README.md')          (Join-Path $stage 'README.md') -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $repoRoot 'CHANGELOG.md')       (Join-Path $stage 'CHANGELOG.md') -ErrorAction SilentlyContinue
 
+# 3.1 携带云同步教程（MQTT / WebDAV），放在便携包根目录与 README/LICENSE 同级，便于离线查阅
+Copy-Item (Join-Path $repoRoot 'docs\cloud-sync-tutorial-mqtt.md')   (Join-Path $stage 'cloud-sync-tutorial-mqtt.md')   -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $repoRoot 'docs\cloud-sync-tutorial-webdav.md') (Join-Path $stage 'cloud-sync-tutorial-webdav.md') -ErrorAction SilentlyContinue
+
 # 4. 写一份便携版使用说明
 $portableReadme = @"
 # Magpie Portable 便携版

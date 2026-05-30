@@ -1,12 +1,12 @@
 
 import { memo, useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, emit } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import { ChevronRight, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Locale } from "../../../shared/types";
-import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs } from "../../app/types";
+import type { DefaultAppsMap, InstalledAppOption, SettingsSubpage, CloudSyncContentPrefs, CardDensity } from "../../app/types";
 import type { AiProfile, AiProfileStatusMap, AppCleanupPolicy, EditableAiProfile } from "../types";
 import AppSelectorModal from "./AppSelectorModal";
 // Removed UpdateModal imports
@@ -24,6 +24,12 @@ import AiSettingsGroup from "./groups/AiSettingsGroup";
 import SettingsFooter from "./SettingsFooter";
 import ThemeStorePanel from "../../theme-store/components/ThemeStorePanel";
 import { CLOUD_SYNC_ENABLED } from "../../../shared/config/edition";
+
+// 三大分组 tab 标识：常用 / 同步 / 高级
+type SettingsTab = "common" | "sync" | "advanced";
+
+// 一次性「设置面板已重组」提示的 localStorage 标记（沿用兼容前缀 tiez_，不可更改）
+const SETTINGS_REORG_HINT_KEY = "tiez_settings_reorg_hint_v041";
 
 interface SettingsPanelProps {
     t: (key: string) => string;
@@ -58,8 +64,12 @@ interface SettingsPanelProps {
     isRecordingRich: boolean;
     searchHotkey: string;
     isRecordingSearch: boolean;
+    sensitiveHotkey: string;
+    isRecordingSensitive: boolean;
     quickPasteModifier: "disabled" | "ctrl" | "alt" | "shift" | "win";
     setQuickPasteModifier: (val: "disabled" | "ctrl" | "alt" | "shift" | "win") => void;
+    quickPasteInAppEnabled: boolean;
+    setQuickPasteInAppEnabled: (val: boolean) => void;
     privacyProtection: boolean;
     privacyProtectionKinds: string[];
     setPrivacyProtectionKinds: (val: string[]) => void;
@@ -83,6 +93,8 @@ interface SettingsPanelProps {
     setScrollTopButtonEnabled: (val: boolean) => void;
     emojiPanelEnabled: boolean;
     setEmojiPanelEnabled: (val: boolean) => void;
+    cardDensity: CardDensity;
+    setCardDensity: (val: CardDensity) => void;
     tagManagerEnabled: boolean;
     setTagManagerEnabled: (val: boolean) => void;
     arrowKeySelection: boolean;
@@ -174,6 +186,10 @@ interface SettingsPanelProps {
     updateRichPasteHotkey: (key: string) => void;
     setIsRecordingSearch: (val: boolean) => void;
     updateSearchHotkey: (key: string) => void;
+    setIsRecordingSensitive: (val: boolean) => void;
+    updateSensitiveHotkey: (key: string) => void;
+    updateHotkeyScope: (id: 'main' | 'sequential' | 'rich' | 'search', scope: 'Global' | 'InAppOnly' | 'BackgroundOnly') => void;
+    resetHotkeyScopes: () => void;
     setPrivacyProtection: (val: boolean) => void;
     setShowHotkeyHint: (val: boolean) => void;
     setIsRecording: (val: boolean) => void;
@@ -249,7 +265,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         t, theme, language, colorMode, showSourceAppIcon, setShowSourceAppIcon,
         collapsedGroups, settingsSubpage, autoStart, silentStart, persistent, persistentLimitEnabled, persistentLimit, deduplicate, captureFiles, captureRichText, richTextSnapshotPreview, deleteAfterPaste, moveToTopAfterPaste,
         sequentialMode, sequentialHotkey, isRecordingSequential,
-        richPasteHotkey, isRecordingRich, searchHotkey, isRecordingSearch, quickPasteModifier, setQuickPasteModifier,
+        richPasteHotkey, isRecordingRich, searchHotkey, isRecordingSearch, sensitiveHotkey, isRecordingSensitive, quickPasteModifier, setQuickPasteModifier,
+        quickPasteInAppEnabled, setQuickPasteInAppEnabled,
         privacyProtection, privacyProtectionKinds, setPrivacyProtectionKinds, privacyProtectionCustomRules, setPrivacyProtectionCustomRules, sensitiveMaskPrefixVisible, setSensitiveMaskPrefixVisible, sensitiveMaskSuffixVisible, setSensitiveMaskSuffixVisible, sensitiveMaskEmailDomain, setSensitiveMaskEmailDomain, cleanupRules, setCleanupRules, appCleanupPolicies, setAppCleanupPolicies, showSearchBox, setShowSearchBox, scrollTopButtonEnabled, setScrollTopButtonEnabled, arrowKeySelection, setArrowKeySelection,
         soundEnabled, setSoundEnabled, pasteSoundEnabled, setPasteSoundEnabled,
         soundVolume, setSoundVolume,
@@ -269,11 +286,13 @@ const SettingsPanel = (props: SettingsPanelProps) => {
         setSequentialModeState, setIsRecordingSequential, updateSequentialHotkey,
         setIsRecordingRich, updateRichPasteHotkey,
         setIsRecordingSearch, updateSearchHotkey,
+        setIsRecordingSensitive, updateSensitiveHotkey,
+        updateHotkeyScope, resetHotkeyScopes,
         setPrivacyProtection,
         setIsRecording, isRecording, hotkey, hotkeyParts, updateHotkey,
         setTheme, setColorMode, setLanguage, compactMode, setCompactMode, checkHotkeyConflict,
         clipboardItemFontSize, setClipboardItemFontSize, clipboardTagFontSize, setClipboardTagFontSize,
-        emojiPanelEnabled, setEmojiPanelEnabled, tagManagerEnabled, setTagManagerEnabled,
+        emojiPanelEnabled, setEmojiPanelEnabled, cardDensity, setCardDensity, tagManagerEnabled, setTagManagerEnabled,
         setMqttEnabled, saveMqtt, setMqttServer, setMqttPort, setMqttUser, setMqttPass, setMqttTopic, setMqttProtocol, setMqttWsPath, setMqttNotificationEnabled,
         setCloudSyncEnabled, setCloudSyncAuto, setCloudSyncIntervalSec, setCloudSyncSnapshotIntervalMin, setCloudSyncWebdavUrl, setCloudSyncWebdavUsername, setCloudSyncWebdavPassword, setCloudSyncWebdavBasePath, setCloudSyncContentPrefs, saveCloudSync,
         setFileServerEnabled, setFileServerPort, setFileTransferAutoOpen, setShowAutoCloseHint, setFileServerAutoClose, setFileTransferAutoCopy, fetchEffectiveTransferPath,
@@ -301,6 +320,21 @@ const SettingsPanel = (props: SettingsPanelProps) => {
     const [openHints, setOpenHints] = useState<Set<string>>(new Set());
     const [privacyKindsOpen, setPrivacyKindsOpen] = useState(false);
     const [privacyRulesOpen, setPrivacyRulesOpen] = useState(false);
+
+    // 设置面板三大分组的 tab 切换：常用 / 同步 / 高级
+    const [activeTab, setActiveTab] = useState<SettingsTab>("common");
+
+    // 首次升级到重组后版本时，弹一次「设置面板已重组」提示（兼容字段：localStorage 前缀 tiez_）
+    useEffect(() => {
+        try {
+            if (localStorage.getItem(SETTINGS_REORG_HINT_KEY) !== "1") {
+                localStorage.setItem(SETTINGS_REORG_HINT_KEY, "1");
+                emit("toast", t("settings_reorganized_hint")).catch(console.error);
+            }
+        } catch (e) {
+            console.error("Failed to show settings reorg hint:", e);
+        }
+    }, [t]);
 
     const applyFileServerPort = async (portStr: string) => {
         const port = Number(portStr);
@@ -505,6 +539,40 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 </>
             ) : (
                 <>
+            {/* 三大分组 tab 切换：常用 / 同步 / 高级 */}
+            <div className="settings-tabs" role="tablist">
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "common"}
+                    className={`settings-tab ${activeTab === "common" ? "active" : ""}`}
+                    onClick={() => setActiveTab("common")}
+                >
+                    {t("settings_tab_common")}
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "sync"}
+                    className={`settings-tab ${activeTab === "sync" ? "active" : ""}`}
+                    onClick={() => setActiveTab("sync")}
+                >
+                    {t("settings_tab_sync")}
+                </button>
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === "advanced"}
+                    className={`settings-tab ${activeTab === "advanced" ? "active" : ""}`}
+                    onClick={() => setActiveTab("advanced")}
+                >
+                    {t("settings_tab_advanced")}
+                </button>
+            </div>
+
+            {/* ===== 常用分组：常规 / 剪贴板 / 界面 ===== */}
+            {activeTab === "common" && (
+                <>
             {/* General Settings */}
             <GeneralSettingsGroup
                 t={t}
@@ -535,6 +603,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 setScrollTopButtonEnabled={setScrollTopButtonEnabled}
                 emojiPanelEnabled={emojiPanelEnabled}
                 setEmojiPanelEnabled={setEmojiPanelEnabled}
+                cardDensity={cardDensity}
+                setCardDensity={setCardDensity}
                 tagManagerEnabled={tagManagerEnabled}
                 setTagManagerEnabled={setTagManagerEnabled}
                 arrowKeySelection={arrowKeySelection}
@@ -571,8 +641,16 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 isRecordingSearch={isRecordingSearch}
                 setIsRecordingSearch={setIsRecordingSearch}
                 updateSearchHotkey={updateSearchHotkey}
+                sensitiveHotkey={sensitiveHotkey}
+                isRecordingSensitive={isRecordingSensitive}
+                setIsRecordingSensitive={setIsRecordingSensitive}
+                updateSensitiveHotkey={updateSensitiveHotkey}
+                updateHotkeyScope={updateHotkeyScope}
+                resetHotkeyScopes={resetHotkeyScopes}
                 quickPasteModifier={quickPasteModifier}
                 setQuickPasteModifier={setQuickPasteModifier}
+                quickPasteInAppEnabled={quickPasteInAppEnabled}
+                setQuickPasteInAppEnabled={setQuickPasteInAppEnabled}
                 deleteAfterPaste={deleteAfterPaste}
                 setDeleteAfterPaste={setDeleteAfterPaste}
                 moveToTopAfterPaste={moveToTopAfterPaste}
@@ -640,7 +718,12 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 saveAppSetting={saveAppSetting}
                 setSettingsSubpage={setSettingsSubpage}
             />
+                </>
+            )}
 
+            {/* ===== 同步分组：验证码同步 / 云端同步 / 局域网文件传输 ===== */}
+            {activeTab === "sync" && (
+                <>
             {/* Sync Settings */}
             <SyncSettingsGroup
                 t={t}
@@ -700,32 +783,6 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 />
             )}
 
-            {/* AI Assistant Settings */}
-            <AiSettingsGroup
-                t={t}
-                collapsed={collapsedGroups['ai']}
-                onToggle={() => toggleGroup('ai')}
-                aiEnabled={aiEnabled}
-                setAiEnabled={setAiEnabled}
-                saveSetting={saveSetting}
-                aiProfiles={aiProfiles}
-                profileStatuses={profileStatuses}
-                checkModelStatus={checkModelStatus}
-                setEditingProfile={setEditingProfile}
-                handleDeleteProfile={handleDeleteProfile}
-                aiAssignedProfileTask={aiAssignedProfileTask}
-                setAiAssignedProfileTask={setAiAssignedProfileTask}
-                aiAssignedProfileMouthpiece={aiAssignedProfileMouthpiece}
-                setAiAssignedProfileMouthpiece={setAiAssignedProfileMouthpiece}
-                aiAssignedProfileTranslate={aiAssignedProfileTranslate}
-                setAiAssignedProfileTranslate={setAiAssignedProfileTranslate}
-                aiTargetLang={aiTargetLang}
-                setAiTargetLang={setAiTargetLang}
-                aiThinkingBudget={aiThinkingBudget}
-                setAiThinkingBudget={setAiThinkingBudget}
-                theme={theme}
-            />
-
             {/* File Transfer Settings */}
             <FileTransferSettingsGroup
                 t={t}
@@ -752,6 +809,37 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                 fileTransferPath={fileTransferPath}
                 saveSetting={saveSetting}
                 fetchEffectiveTransferPath={fetchEffectiveTransferPath}
+            />
+                </>
+            )}
+
+            {/* ===== 高级分组：AI 助手 / 默认程序 / 数据管理 / 高级设置 ===== */}
+            {activeTab === "advanced" && (
+                <>
+            {/* AI Assistant Settings */}
+            <AiSettingsGroup
+                t={t}
+                collapsed={collapsedGroups['ai']}
+                onToggle={() => toggleGroup('ai')}
+                aiEnabled={aiEnabled}
+                setAiEnabled={setAiEnabled}
+                saveSetting={saveSetting}
+                aiProfiles={aiProfiles}
+                profileStatuses={profileStatuses}
+                checkModelStatus={checkModelStatus}
+                setEditingProfile={setEditingProfile}
+                handleDeleteProfile={handleDeleteProfile}
+                aiAssignedProfileTask={aiAssignedProfileTask}
+                setAiAssignedProfileTask={setAiAssignedProfileTask}
+                aiAssignedProfileMouthpiece={aiAssignedProfileMouthpiece}
+                setAiAssignedProfileMouthpiece={setAiAssignedProfileMouthpiece}
+                aiAssignedProfileTranslate={aiAssignedProfileTranslate}
+                setAiAssignedProfileTranslate={setAiAssignedProfileTranslate}
+                aiTargetLang={aiTargetLang}
+                setAiTargetLang={setAiTargetLang}
+                aiThinkingBudget={aiThinkingBudget}
+                setAiThinkingBudget={setAiThinkingBudget}
+                theme={theme}
             />
 
             {/* Default Apps Settings */}
@@ -786,6 +874,8 @@ const SettingsPanel = (props: SettingsPanelProps) => {
                     <ChevronRight size={16} />
                 </button>
             </div>
+                </>
+            )}
 
             <SettingsFooter
                 t={t}

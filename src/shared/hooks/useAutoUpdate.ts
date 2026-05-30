@@ -6,6 +6,29 @@ import { isTauriRuntime } from "../lib/tauriRuntime";
 
 export type UpdateStatus = "idle" | "checking" | "downloading" | "ready" | "error";
 
+// 更新检查错误分类对应的 i18n 文案键（DNS / TLS / 通用三类）
+export type UpdateErrorKey = "update_error_dns" | "update_error_tls" | "update_error_generic";
+
+/**
+ * 将更新检查抛出的原始（英文）异常归类为三类中文文案键，
+ * 避免把原始英文异常直接暴露给用户（需求 3.1 / 3.2 / 3.3）。
+ * - DNS 解析失败 -> update_error_dns
+ * - TLS 握手 / 证书失败 -> update_error_tls
+ * - 其他未知错误 -> update_error_generic
+ */
+export const classifyUpdateError = (raw: string): UpdateErrorKey => {
+  const text = raw.toLowerCase();
+  // DNS 解析问题：域名无法解析 / 查找失败
+  if (text.includes("dns") || text.includes("resolve") || text.includes("failed to lookup")) {
+    return "update_error_dns";
+  }
+  // TLS / 证书 / 握手失败：安全连接建立失败
+  if (text.includes("tls") || text.includes("handshake") || text.includes("certificate")) {
+    return "update_error_tls";
+  }
+  return "update_error_generic";
+};
+
 // 启动后多久触发首次自动检查更新（毫秒）
 const STARTUP_CHECK_DELAY_MS = 5000;
 
@@ -16,6 +39,8 @@ export const useAutoUpdate = () => {
   const [notes, setNotes] = useState("");
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [updateObj, setUpdateObj] = useState<Update | null>(null);
+  // 更新失败时的中文错误分类文案键，不暴露原始英文异常
+  const [errorKey, setErrorKey] = useState<UpdateErrorKey>("update_error_generic");
 
   const checkUpdate = useCallback(async () => {
     if (!isTauriRuntime()) return;
@@ -44,7 +69,9 @@ export const useAutoUpdate = () => {
       
       setStatus("idle");
     } catch (error) {
+      // 仅向控制台输出原始异常用于排查；界面只呈现中文分类文案
       console.error("[Update] Failed to check for updates:", error);
+      setErrorKey(classifyUpdateError(String(error)));
       setStatus("error");
     }
   }, []);
@@ -75,7 +102,9 @@ export const useAutoUpdate = () => {
       setStatus("ready");
       setDownloadProgress(100);
     } catch (error) {
+      // 仅向控制台输出原始异常用于排查；界面只呈现中文分类文案
       console.error("[Update] Failed to download or install update:", error);
+      setErrorKey(classifyUpdateError(String(error)));
       setStatus("error");
     }
   };
@@ -140,6 +169,7 @@ export const useAutoUpdate = () => {
     version,
     notes,
     downloadProgress,
+    errorKey,
     onManualUpdate: checkUpdate,
     onStartDownload: startUpdate,
     onApplyUpdate: applyUpdate,

@@ -1,0 +1,76 @@
+name: "CI"
+
+# C8（需求 26）：持续集成流水线，集成 Swatinem/rust-cache 加速 Rust 构建，
+# 目标总耗时 < 15 分钟。C9（需求 27.3）：在构建/检查后运行单测、Rust 测试与 e2e。
+on:
+  push:
+  pull_request:
+
+# 同一分支/PR 的旧运行在新提交到来时取消，节省排队与机时，助力总耗时控制
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-check:
+    # 与 release.yml 一致：仅 Windows 平台
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # 与 release.yml 一致的 Node 配置；额外开启 npm 缓存以加速依赖安装
+      - name: setup node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: "npm"
+
+      # 与 release.yml 一致的 Rust 工具链与目标，额外安装 clippy 组件用于 lint
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy
+
+      # 缓存 Rust 构建产物（Cargo.toml 位于 src-tauri）
+      - name: cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      # 有 package-lock.json，使用 npm ci 保证可复现安装
+      - name: install frontend dependencies
+        run: npm ci
+
+      - name: build frontend
+        run: npm run build
+
+      - name: cargo check
+        working-directory: src-tauri
+        run: cargo check --all-targets
+
+      # clippy 作为 lint 检查；暂不使用 -D warnings 以免历史告警阻断流水线，
+      # 后续清理告警后可收紧为 `-- -D warnings`
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets
+
+      # ---- C9（需求 27.3）：在 CI 上运行测试体系 ----
+      # 排序原则：快的单测在前、最慢的 e2e 在后，尽早暴露失败，配合缓存控制总耗时 < 15 分钟。
+
+      # Unit_Test_Suite（需求 27.2）：vitest 前端单测，含 fast-check 属性测试（Property 8）
+      - name: run unit tests (vitest)
+        run: npm run test
+
+      # Rust 单测与属性测试：cargo test 会运行 src-tauri 下的单测及 proptest 属性测试
+      - name: run Rust tests (cargo test)
+        working-directory: src-tauri
+        run: cargo test --all-targets
+
+      # E2E_Suite（需求 27.1、27.4）：先安装 Playwright 浏览器（Windows runner 不支持 --with-deps，
+      # 仅安装 chromium 即可），再运行 e2e；Playwright 在 CI 下会自动拉起 Vite dev server
+      - name: install Playwright chromium
+        run: npx playwright install chromium
+
+      - name: run e2e tests (Playwright)
+        run: npx playwright test

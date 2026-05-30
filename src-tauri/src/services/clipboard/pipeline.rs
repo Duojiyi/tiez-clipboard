@@ -184,8 +184,9 @@ impl PipelineStage for TransformationStage {
         let entry = ctx.entry.as_mut().unwrap();
         let settings = ctx.app_handle.state::<SettingsState>();
 
-        // Normalization (already partially done but let's be thorough)
-        entry.content = entry.content.trim().replace("\r\n", "\n");
+        // 行尾归一：仅将 \r\n 统一为 \n，保留全部前导/内部/尾部空白（空格、Tab、换行），
+        // 存储的原始内容不被 trim 破坏（U1：捕获保真）
+        entry.content = entry.content.replace("\r\n", "\n");
 
         let app_cleanup_policies_raw = settings.app_cleanup_policies.lock().unwrap().clone();
         if !app_cleanup_policies_raw.trim().is_empty() {
@@ -213,7 +214,8 @@ impl PipelineStage for TransformationStage {
                             ctx.should_stop = true;
                             return;
                         }
-                        entry.content = cleaned.trim().replace("\r\n", "\n");
+                        // 清洗结果仅做行尾归一，不 trim，保留空白以保证存储无损
+                        entry.content = cleaned.replace("\r\n", "\n");
                         entry.preview =
                             build_entry_preview(&entry.content_type, &entry.content, None);
                     }
@@ -231,7 +233,8 @@ impl PipelineStage for TransformationStage {
                         ctx.should_stop = true;
                         return;
                     }
-                    entry.content = cleaned.trim().replace("\r\n", "\n");
+                    // 清洗结果仅做行尾归一，不 trim，保留空白以保证存储无损
+                    entry.content = cleaned.replace("\r\n", "\n");
                     entry.preview = build_entry_preview(&entry.content_type, &entry.content, None);
                 }
             }
@@ -271,6 +274,20 @@ impl PipelineStage for TransformationStage {
 
 // Stage 3: Validation (Deduplication & Sequential Echo)
 pub struct ValidationStage;
+
+/// 合并标签：返回 existing 与 incoming 的并集去重结果。
+/// 标签名逐字节完全相同才视为同一标签（HashSet 去重），保持首次出现顺序。
+fn merge_tags_union(existing: &[String], incoming: &[String]) -> Vec<String> {
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut merged: Vec<String> = Vec::new();
+    for tag in existing.iter().chain(incoming.iter()) {
+        if seen.insert(tag.as_str()) {
+            merged.push(tag.clone());
+        }
+    }
+    merged
+}
+
 impl PipelineStage for ValidationStage {
     fn process(&self, ctx: &mut PipelineContext) {
         let settings = ctx.app_handle.state::<SettingsState>();
@@ -326,7 +343,8 @@ impl PipelineStage for ValidationStage {
             };
 
             // Try precise match and normalized match
-            let normalized_content = content.trim().replace("\r\n", "\n");
+            // 去重比较键改用 dedup_key_for：对副本归一，纯空白内容回退原始内容，存储内容不变
+            let normalized_content = dedup_key_for(&content);
             let normalized_html = |html: &str| html.trim().replace("\r\n", "\n");
             let recent_self_copy_window = {
                 let last_app_time = crate::LAST_APP_SET_TIMESTAMP.load(Ordering::Relaxed);
@@ -355,7 +373,7 @@ impl PipelineStage for ValidationStage {
                         return true;
                     }
                     return recent_self_copy_window
-                        && stored_content.trim().replace("\r\n", "\n") == normalized_content;
+                        && dedup_key_for(&stored_content) == normalized_content;
                 }
                 false
             };
@@ -400,9 +418,18 @@ impl PipelineStage for ValidationStage {
 
             if persistent_enabled {
                 if let Some(id) = existing_id {
-                    // Instead of deleting, we set the entry ID so PersistenceStage performs an UPDATE
-                    // This ensures the item is "moved to top" without risking data loss
+                    // 去重命中已有条目：先读取其已有标签，与新捕获标签做并集去重后写回，
+                    // 避免重复内容合并时丢失已打过的标签（U2：标签合并保留并集）
+                    let existing_tags = db_state
+                        .repo
+                        .get_entry_by_id_with_conn(&conn, id)
+                        .ok()
+                        .flatten()
+                        .map(|e| e.tags)
+                        .unwrap_or_default();
+                    // 通过设置 entry.id 让 PersistenceStage 执行 UPDATE（"移到顶部"且不丢数据）
                     let entry_mut = ctx.entry.as_mut().unwrap();
+                    entry_mut.tags = merge_tags_union(&existing_tags, &entry_mut.tags);
                     entry_mut.id = id;
                 }
             }
@@ -414,14 +441,14 @@ impl PipelineStage for ValidationStage {
             {
                 let session = session_history.0.lock().unwrap();
                 let entry = ctx.entry.as_ref().expect("entry exists");
-                let normalized_content = entry.content.trim().replace("\r\n", "\n");
+                let normalized_content = dedup_key_for(&entry.content);
                 let entry_image_hash = if entry.content_type == "image" {
                     calc_image_hash(&entry.content)
                 } else {
                     None
                 };
                 for item in session.iter() {
-                    let item_normalized = item.content.trim().replace("\r\n", "\n");
+                    let item_normalized = dedup_key_for(&item.content);
                     let rich_text_match =
                         if entry.content_type == "rich_text" && item.content_type == "rich_text" {
                             htmls_equivalent(

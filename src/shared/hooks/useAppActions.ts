@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { PushToast } from "../types";
 
 interface UseAppActionsOptions {
   t: (key: string) => string;
@@ -7,7 +8,7 @@ interface UseAppActionsOptions {
   cloudSyncEnabled: boolean;
   openConfirm: (opts: { title: string; message: string; onConfirm: () => void }) => void;
   closeConfirm: () => void;
-  pushToast: (msg: string, duration?: number) => number;
+  pushToast: PushToast;
   fetchHistory: (reset?: boolean) => Promise<void>;
 }
 
@@ -75,7 +76,7 @@ export const useAppActions = ({
           window.location.reload();
         } catch (err) {
           const errorMsg = t("reset_failed") + (err?.toString() || "");
-          pushToast(errorMsg, 3000);
+          pushToast(errorMsg, 3000, "error");
         }
         closeConfirm();
       }

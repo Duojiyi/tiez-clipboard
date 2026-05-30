@@ -9,6 +9,7 @@ pub mod global_state;
 pub mod infrastructure;
 pub mod logger;
 pub mod migration;
+pub mod panic_hook;
 pub mod services;
 
 use crate::app::setup;
@@ -47,6 +48,19 @@ fn main() {
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
             setup::init(app)?;
+            // C6(需求 25)：在启动流程完成后立即安装全局 panic hook。
+            // 此时 AppDataDir 与 DbState 均已 manage，可据此推导 tiez.log 路径并在
+            // 主线程 panic 时落盘数据库。hook 安装在主线程，用于区分主/后台线程 panic。
+            {
+                use tauri::Manager;
+                let log_path = app
+                    .state::<app_state::AppDataDir>()
+                    .0
+                    .lock()
+                    .map(|dir| dir.join("tiez.log"))
+                    .unwrap_or_else(|_| std::path::PathBuf::from("tiez.log"));
+                panic_hook::install_panic_hook(log_path, app.handle().clone());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -113,6 +127,7 @@ fn main() {
             app::commands::open_file_with_default_app,
             app::commands::open_file_location,
             app::commands::set_data_path,
+            app::commands::copy_diagnostics,
             app::commands::toggle_autostart,
             app::commands::is_autostart_enabled,
             app::commands::set_windows_clipboard_history,
@@ -120,6 +135,7 @@ fn main() {
             app::commands::set_win_clipboard_disabled,
             app::commands::trigger_registry_win_v_optimization,
             app::commands::is_registry_win_v_optimized,
+            app::commands::detect_win_v_occupier,
             app::commands::restart_explorer,
             app::commands::restart_as_admin,
             app::commands::check_is_admin,
@@ -130,6 +146,7 @@ fn main() {
             app::commands::send_system_notification,
             app::commands::register_hotkey,
             app::commands::test_hotkey_available,
+            app::commands::sync_hotkeys,
             app::commands::toggle_clipboard_pin,
             app::commands::update_tags,
             app::commands::add_manual_item,
@@ -141,6 +158,8 @@ fn main() {
             app::commands::save_emoji_favorite_url,
             app::commands::get_file_size,
             app::commands::save_file_copy,
+            infrastructure::repository::user_emoji_repo::add_image_to_emoji,
+            infrastructure::repository::user_emoji_repo::list_user_emojis,
             services::clipboard_ops::paste_text_directly,
             services::clipboard_ops::paste_content_transiently,
             services::file_transfer::send_chat_message,

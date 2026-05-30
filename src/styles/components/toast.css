@@ -11,10 +11,15 @@
   pointer-events: none;
 }
 
+/* 统一的 Toast 卡片：图标 + 文案横向排列，颜色/边框/阴影统一 */
 .toast-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #fbfbfb;
   color: var(--text-primary);
   border: 2px solid var(--border-dark);
+  border-left-width: 6px; /* 左侧粗边作为类型色条 */
   padding: 10px 16px;
   font-family: var(--font-mono);
   font-size: 13px;
@@ -22,5 +27,40 @@
   box-shadow: 6px 6px 0 var(--border-dark);
   pointer-events: auto;
   min-width: 200px;
-  text-align: center;
+  max-width: 360px;
+  text-align: left;
+}
+
+.toast-item .toast-msg {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* 图标颜色随类型变化；文案保持主文本色以保证可读性 */
+.toast-item svg {
+  flex-shrink: 0;
+}
+
+/* 成功：绿色色条与图标 */
+.toast-item.toast-success {
+  border-left-color: #2e9e5b;
+}
+.toast-item.toast-success svg {
+  color: #2e9e5b;
+}
+
+/* 失败 / 错误（含网络错误）：红色色条与图标 */
+.toast-item.toast-error {
+  border-left-color: #d94a4a;
+}
+.toast-item.toast-error svg {
+  color: #d94a4a;
+}
+
+/* 普通信息：中性蓝色条与图标 */
+.toast-item.toast-info {
+  border-left-color: #3a7afe;
+}
+.toast-item.toast-info svg {
+  color: #3a7afe;
 }

@@ -51,3 +51,11 @@
   background: var(--bg-panel);
   border-color: #000;
 }
+
+/* 暗色模式下保留类型色条（左侧粗边），避免被上面的 border-color 覆盖 */
+.dark-mode .toast-item.toast-success{ border-left-color: #3fbf73; }
+.dark-mode .toast-item.toast-error{ border-left-color: #ff6b6b; }
+.dark-mode .toast-item.toast-info{ border-left-color: #5b9bff; }
+.dark-mode .toast-item.toast-success svg{ color: #3fbf73; }
+.dark-mode .toast-item.toast-error svg{ color: #ff6b6b; }
+.dark-mode .toast-item.toast-info svg{ color: #5b9bff; }

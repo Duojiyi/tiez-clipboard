@@ -2322,8 +2322,33 @@ pub fn parse_cf_html(raw: &[u8]) -> Option<String> {
     None
 }
 
+/// 判定剪贴板内容是否为空。
+///
+/// 仅依据「去任何空白处理前的原始长度」是否为 0 来判断：
+/// 只有原始字符串本身为空才算空内容。
+/// 由空格、Tab、换行、回车等空白字符组成、但原始长度大于 0 的内容
+/// 一律视为有效内容（不判定为空）。
+pub fn is_empty_clipboard_content(raw: &str) -> bool {
+    raw.is_empty()
+}
+
+/// 生成用于重复检测的比较键。
+///
+/// 仅对原始内容的副本做归一化（去除首尾空白并将 `\r\n` 统一为 `\n`），
+/// 不修改实际存储的原始内容。
+/// 若去除首尾空白后结果为空（即纯空白内容），则回退使用原始内容作为比较键，
+/// 以避免不同的纯空白内容被误判为重复。
+pub fn dedup_key_for(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        raw.to_string()
+    } else {
+        trimmed.replace("\r\n", "\n")
+    }
+}
+
 #[cfg(test)]
-mod tests {
+mod content_classification_tests {
     use super::*;
 
     mod detect_content_type_tests {
@@ -2463,6 +2488,119 @@ mod tests {
                 &kinds(&[]),
                 &["order-\\d+".to_string()],
             ));
+        }
+    }
+}
+
+// Feature: magpie-v0-4-1, Property 2: 判空仅依据原始长度
+#[cfg(test)]
+mod property_2_is_empty_by_raw_length {
+    use super::is_empty_clipboard_content;
+    use proptest::prelude::*;
+
+    /// 生成偏向空白字符的文本：覆盖纯空白、前导空白、任意文本三类输入空间，
+    /// 重点覆盖「原始长度大于 0 的纯空白内容」这一关键边界。
+    fn whitespace_biased_text() -> impl Strategy<Value = String> {
+        prop_oneof![
+            // 纯空白字符串（空格 / Tab / 换行 / 回车），长度 0~16
+            proptest::collection::vec(
+                prop_oneof![Just(' '), Just('\t'), Just('\n'), Just('\r')],
+                0..16usize,
+            )
+            .prop_map(|chars| chars.into_iter().collect::<String>()),
+            // 任意文本（不含换行）
+            any::<String>(),
+            // 带前导空白的普通文本
+            (
+                proptest::collection::vec(prop_oneof![Just(' '), Just('\t')], 0..8usize),
+                "[a-zA-Z0-9 \t]{0,30}",
+            )
+                .prop_map(|(ws, body)| format!(
+                    "{}{}",
+                    ws.into_iter().collect::<String>(),
+                    body
+                )),
+        ]
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+        #[test]
+        fn 判空仅依据原始长度(raw in whitespace_biased_text()) {
+            // 判空当且仅当原始长度为 0（raw 本身为空字符串）
+            prop_assert_eq!(
+                is_empty_clipboard_content(&raw),
+                raw.is_empty(),
+                "判空必须仅依据原始长度：raw={:?}",
+                raw
+            );
+            // 任意原始长度大于 0 的内容（含纯空白）都不得被判定为空
+            if !raw.is_empty() {
+                prop_assert!(
+                    !is_empty_clipboard_content(&raw),
+                    "原始长度大于 0 的内容（含纯空白）不得被判空：raw={:?}",
+                    raw
+                );
+            }
+        }
+    }
+}
+
+// Feature: magpie-v0-4-1, Property 3: 比较键生成不改原文且区分纯空白
+#[cfg(test)]
+mod property_3_dedup_key_for {
+    use super::dedup_key_for;
+    use proptest::prelude::*;
+
+    /// 纯空白文本（原始长度大于 0，仅由空格 / Tab / 换行 / 回车组成）。
+    fn pure_whitespace() -> impl Strategy<Value = String> {
+        proptest::collection::vec(
+            prop_oneof![Just(' '), Just('\t'), Just('\n'), Just('\r')],
+            1..16usize,
+        )
+        .prop_map(|chars| chars.into_iter().collect::<String>())
+    }
+
+    /// 覆盖纯空白、任意文本、带前导空白文本三类输入空间。
+    fn any_text() -> impl Strategy<Value = String> {
+        prop_oneof![
+            pure_whitespace(),
+            any::<String>(),
+            (
+                proptest::collection::vec(prop_oneof![Just(' '), Just('\t')], 0..8usize),
+                "[a-zA-Z0-9 \t]{0,30}",
+            )
+                .prop_map(|(ws, body)| format!(
+                    "{}{}",
+                    ws.into_iter().collect::<String>(),
+                    body
+                )),
+        ]
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+        #[test]
+        fn 比较键生成不改原文且区分纯空白(
+            raw in any_text(),
+            ws_a in pure_whitespace(),
+            ws_b in pure_whitespace(),
+        ) {
+            // 不改原文：生成比较键的过程不得修改原始内容
+            let original = raw.clone();
+            let _key = dedup_key_for(&raw);
+            prop_assert_eq!(&raw, &original, "生成比较键不得修改原始内容：raw={:?}", original);
+
+            // 区分纯空白：两个互不相同的纯空白文本，其比较键必须互不相等
+            if ws_a != ws_b {
+                prop_assert_ne!(
+                    dedup_key_for(&ws_a),
+                    dedup_key_for(&ws_b),
+                    "不同的纯空白内容的比较键不得相等：a={:?} b={:?}",
+                    ws_a,
+                    ws_b
+                );
+            }
         }
     }
 }

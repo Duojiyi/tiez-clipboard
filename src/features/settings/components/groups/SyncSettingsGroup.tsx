@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 
 interface LabelWithHintProps {
     label: string;
@@ -64,6 +64,8 @@ const SyncSettingsGroup = ({
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <div className="group-header" onClick={onToggle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+                <RefreshCw size={16} />
                 <h3 style={{ margin: 0 }}>{t('sync_settings')}</h3>
                 {mqttEnabled && (
                     <span
@@ -101,7 +103,7 @@ const SyncSettingsGroup = ({
                         onClick={() => {
                             invoke("open_content", {
                                 id: 0,
-                                content: 'https://my.feishu.cn/docx/JFjVdSqaGou5ZDxFGUZczCz2nth?from=from_copylink',
+                                content: 'https://github.com/Duojiyi/magpie/blob/master/docs/cloud-sync-tutorial-mqtt.md',
                                 contentType: 'url'
                             });
                         }}

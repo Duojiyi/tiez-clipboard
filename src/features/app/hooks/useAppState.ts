@@ -3,6 +3,7 @@ import { DEFAULT_THEME } from "../../../shared/config/themes";
 import type { ClipboardEntry, Locale } from "../../../shared/types";
 import type {
   AppState,
+  CardDensity,
   CloudSyncContentPrefs,
   DefaultAppsMap,
   InstalledAppOption,
@@ -57,13 +58,19 @@ export const useAppState = (): AppState => {
   const [sequentialHotkey, setSequentialHotkey] = useState<string>("Alt+V");
   const [richPasteHotkey, setRichPasteHotkey] = useState<string>("Alt+Shift+V");
   const [searchHotkey, setSearchHotkey] = useState<string>("Alt+F");
+  // 敏感标记快捷键，默认 S（需求 17.3，可自定义覆盖）；InAppOnly，仅由 webview keydown 响应
+  const [sensitiveHotkey, setSensitiveHotkey] = useState<string>("S");
   const [quickPasteModifier, setQuickPasteModifier] =
     useState<QuickPasteModifier>("disabled");
+  // 数字快捷粘贴（Ctrl+1~9，InAppOnly）开关，默认关闭（需求 16.1）
+  const [quickPasteInAppEnabled, setQuickPasteInAppEnabled] = useState(false);
   const [sequentialMode, setSequentialModeState] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingSequential, setIsRecordingSequential] = useState(false);
   const [isRecordingRich, setIsRecordingRich] = useState(false);
   const [isRecordingSearch, setIsRecordingSearch] = useState(false);
+  // 敏感标记快捷键录制态（需求 17.3）
+  const [isRecordingSensitive, setIsRecordingSensitive] = useState(false);
   const [deleteAfterPaste, setDeleteAfterPaste] = useState(false);
   const [moveToTopAfterPaste, setMoveToTopAfterPaste] = useState(true);
   const [privacyProtection, setPrivacyProtection] = useState(true);
@@ -93,6 +100,8 @@ export const useAppState = (): AppState => {
   const [showSourceAppIcon, setShowSourceAppIcon] = useState(true);
 
   const [compactMode, setCompactMode] = useState(false);
+  // 卡片密度三档（V5 / 需求 32），默认标准；与 compactMode 协调（紧凑模式叠加更密集布局）
+  const [cardDensity, setCardDensity] = useState<CardDensity>("standard");
   const [clipboardItemFontSize, setClipboardItemFontSize] = useState(13);
   const [clipboardTagFontSize, setClipboardTagFontSize] = useState(10);
   const [emojiPanelEnabled, setEmojiPanelEnabled] = useState(false);
@@ -246,8 +255,12 @@ export const useAppState = (): AppState => {
     setRichPasteHotkey,
     searchHotkey,
     setSearchHotkey,
+    sensitiveHotkey,
+    setSensitiveHotkey,
     quickPasteModifier,
     setQuickPasteModifier,
+    quickPasteInAppEnabled,
+    setQuickPasteInAppEnabled,
     sequentialMode,
     setSequentialModeState,
     isRecording,
@@ -258,6 +271,8 @@ export const useAppState = (): AppState => {
     setIsRecordingRich,
     isRecordingSearch,
     setIsRecordingSearch,
+    isRecordingSensitive,
+    setIsRecordingSensitive,
     deleteAfterPaste,
     setDeleteAfterPaste,
     moveToTopAfterPaste,
@@ -305,6 +320,8 @@ export const useAppState = (): AppState => {
 
     compactMode,
     setCompactMode,
+    cardDensity,
+    setCardDensity,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,

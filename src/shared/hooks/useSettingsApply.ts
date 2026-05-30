@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { applyThemeClasses, normalizeThemeId } from "../config/themes";
+import type { CardDensity } from "../../features/app/types";
 
 interface UseSettingsApplyOptions {
   theme: string;
   colorMode: string;
 
   compactMode: boolean;
+  cardDensity: CardDensity;
   settingsLoaded: boolean;
   clipboardItemFontSize: number;
   clipboardTagFontSize: number;
@@ -20,6 +22,7 @@ export const useSettingsApply = ({
   colorMode,
 
   compactMode,
+  cardDensity,
   settingsLoaded,
   clipboardItemFontSize,
   clipboardTagFontSize,
@@ -68,6 +71,11 @@ export const useSettingsApply = ({
     } else {
       body.classList.remove("compact-mode");
     }
+
+    // 卡片密度三档（V5 / 需求 32）：在 body 上挂 density-* 类，由 compact-mode.css 调整高度与间距。
+    // 与 compactMode 协调——紧凑模式叠加密度类时仍以更密集布局为基础。
+    body.classList.remove("density-compact", "density-standard", "density-loose");
+    body.classList.add(`density-${cardDensity}`);
 
     if (colorMode === "light") {
       applyExplicitMode("light");
@@ -122,7 +130,7 @@ export const useSettingsApply = ({
       if (unlisten) unlisten();
       if (cleanupMedia) cleanupMedia();
     };
-  }, [theme, colorMode, settingsLoaded, compactMode]);
+  }, [theme, colorMode, settingsLoaded, compactMode, cardDensity]);
 
   useEffect(() => {
     if (!settingsLoaded) return;

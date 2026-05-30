@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import type { DragControls } from "framer-motion";
 import type { ClipboardEntry, Locale } from "../../shared/types";
+import type { CardDensity } from "../app/types";
 
 export interface QuickPasteHint {
   slot: number;
@@ -69,6 +70,8 @@ export interface VirtualClipboardListProps {
   isKeyboardMode: boolean;
   onScroll?: (offset: number) => void;
   compactMode: boolean;
+  /** 卡片密度三档（V5 / 需求 32），切换时强制重算虚拟列表行高 */
+  cardDensity: CardDensity;
   header?: ReactNode;
 }
 

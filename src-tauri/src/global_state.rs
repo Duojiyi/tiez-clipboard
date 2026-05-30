@@ -24,6 +24,10 @@ pub static IS_RECORDING: AtomicBool = AtomicBool::new(false);
 pub static IGNORE_BLUR: AtomicBool = AtomicBool::new(false);
 pub static WINDOW_PINNED: AtomicBool = AtomicBool::new(false);
 pub static CLIPBOARD_MONITOR_PAUSED: AtomicBool = AtomicBool::new(false);
+// Win+V 接管开关：为 true 时低级键盘钩子拦截 Win+V 并唤起 Magpie 主窗口，
+// 同时阻止其透传给系统剪贴板历史。默认开启（与 app.use_win_v_shortcut 默认值一致），
+// 启动时按设置同步，用户在设置中开关时实时更新。
+pub static WIN_V_TAKEOVER_ENABLED: AtomicBool = AtomicBool::new(true);
 pub static LAST_ACTIVE_HWND: AtomicUsize = AtomicUsize::new(0);
 pub static LAST_APP_SET_HASH: AtomicU64 = AtomicU64::new(0);
 pub static LAST_APP_SET_HASH_ALT: AtomicU64 = AtomicU64::new(0);

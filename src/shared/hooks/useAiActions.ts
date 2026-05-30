@@ -1,13 +1,13 @@
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Dispatch, SetStateAction } from "react";
-import type { ClipboardEntry } from "../types";
+import type { ClipboardEntry, PushToast } from "../types";
 import type { AiProfile } from "../../features/settings/types";
 
 interface UseAiActionsOptions {
   aiProfiles: AiProfile[];
   language: string;
-  pushToast: (msg: string, duration?: number) => number;
+  pushToast: PushToast;
   setShowSettings: Dispatch<SetStateAction<boolean>>;
   setProcessingAiId: Dispatch<SetStateAction<number | null>>;
   setHistory: Dispatch<SetStateAction<ClipboardEntry[]>>;
@@ -74,7 +74,7 @@ export const useAiActions = ({
         );
       } catch (err) {
         const errorMsg = err?.toString() || "AI processing failed";
-        pushToast(errorMsg, 5000);
+        pushToast(errorMsg, 5000, "error");
       } finally {
         setProcessingAiId(null);
       }

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, AppWindow } from "lucide-react";
 import type { DefaultAppsMap, InstalledAppOption } from "../../../app/types";
 
 interface DefaultAppsSettingsGroupProps {
@@ -37,7 +37,11 @@ const DefaultAppsSettingsGroup = ({
     return (
         <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
             <div className="group-header" onClick={onToggle}>
-                <h3 style={{ margin: 0 }}>{t('default_apps')}</h3>
+                {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AppWindow size={16} />
+                    <h3 style={{ margin: 0 }}>{t('default_apps')}</h3>
+                </div>
                 {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </div>
             {!collapsed && (

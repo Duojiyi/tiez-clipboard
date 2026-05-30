@@ -348,6 +348,17 @@ pub fn toggle_window(app: &AppHandle) {
             .as_millis() as u64;
         LAST_SHOW_TIMESTAMP.store(now, Ordering::Relaxed);
 
+        // 多屏兜底：上述各分支按光标屏/焦点屏定位后，若因显示器掉线、分辨率变更或
+        // available_monitors 失败导致最终矩形落在屏外，复用启动期的离屏修复逻辑
+        // （内部调用 clamp_window_rect_to_monitor）把窗口钳制回目标显示器可见区域（需求 13.1）。
+        {
+            let edge_docking = app
+                .state::<SettingsState>()
+                .edge_docking
+                .load(Ordering::Relaxed);
+            crate::app::setup::repair_window_position_if_needed(&window, edge_docking);
+        }
+
         let pinned = WINDOW_PINNED.load(Ordering::Relaxed);
         let _ = window.set_always_on_top(pinned);
         let _ = window.set_focusable(false);
@@ -538,7 +549,11 @@ mod tests {
             height: 1440,
         };
 
-        let mapped = remap_fixed_window_position((1610, 670), (300, 400), source, target);
+        // 修正依据：remap_fixed_window_position 按「窗口在可移动跨度(屏宽-窗宽)中的相对比例」做锚定。
+        // 本用例验证「源屏右下角贴边 → 切屏后目标屏仍右下角贴边」，故源窗口左上角必须取真正的贴角坐标
+        // (1920-300, 1080-400)=(1620,680)（比例=1.0），映射结果才是目标屏贴角 (1920+2560-300, 1440-400)=(4180,1040)。
+        // 原输入 (1610,670) 离角各差 10px 并非贴角，与期望的贴角值不自洽，属测试输入笔误，此处修正为贴角输入。
+        let mapped = remap_fixed_window_position((1620, 680), (300, 400), source, target);
 
         assert_eq!(mapped, (4180, 1040));
     }
@@ -560,7 +575,11 @@ mod tests {
 
         let mapped = remap_fixed_window_position((810, 340), (300, 400), source, target);
 
-        assert_eq!(mapped, (-800, 250));
+        // 修正依据：源窗口 (810,340) 在源屏处于完美居中（x 比例 810/(1920-300)=0.5，y 比例 340/(1080-400)=0.5）。
+        // 「窗口居中」指窗口中心对齐屏幕中心，对应左上角 x = target.x + (target.width - window.width)/2
+        // = -1600 + (1600-300)/2 = -950；y = 0 + (900-400)/2 = 250。
+        // 原期望 -800 误用了「屏幕中心坐标」(-1600+1600/2)，那是把窗口左上角放到屏幕中心、并非窗口居中，属期望值笔误，修正为 -950。
+        assert_eq!(mapped, (-950, 250));
     }
 
     #[test]

@@ -376,3 +376,19 @@
   text-transform: none;
   white-space: nowrap;
 }
+
+/* 敏感条目视觉强调（需求 17.2）：左侧危险色色块 + 头部盾牌图标 */
+.history-item.sensitive-item {
+  /* 左侧色块：紧凑/标准模式均生效（紧凑模式下 app-info 被隐藏，色块作为主要标识） */
+  box-shadow: inset 3px 0 0 0 var(--sensitive-accent, #ef4444), var(--card-shadow);
+}
+
+.history-item.sensitive-item:hover {
+  box-shadow: inset 3px 0 0 0 var(--sensitive-accent, #ef4444), var(--card-hover-shadow);
+}
+
+/* 头部盾牌图标：标识该条目含敏感标签 */
+.app-info .sensitive-badge {
+  flex-shrink: 0;
+  color: var(--sensitive-accent, #ef4444);
+}

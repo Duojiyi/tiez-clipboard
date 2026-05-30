@@ -25,7 +25,9 @@ const SENSITIVE_KEYS: &[&str] = &[
     "cloud_sync_webdav_password",
 ];
 
-pub const SENSITIVE_TAGS: &[&str] = &["sensitive", "密码"];
+// 敏感标签识别集合：统一使用保留标签 `__sensitive__`（新写入），
+// 同时兼容历史数据中的 `sensitive` / `密码`（需求 17）。
+pub const SENSITIVE_TAGS: &[&str] = &["__sensitive__", "sensitive", "密码"];
 
 pub fn is_sensitive_key(key: &str) -> bool {
     SENSITIVE_KEYS.iter().any(|k| k.eq_ignore_ascii_case(key))
@@ -122,13 +124,58 @@ pub fn init_db(path: &str) -> Result<Connection> {
     ",
     )?;
 
-    // Run migrations
+    // C4(需求 23.2)：schema 的创建/迁移与默认项填充必须在此同步完成。
+    // 原因：DbState 持有的是「单一共享连接」，启动主路径会紧接着读取 settings
+    // （load_settings / apply_startup_resets）并渲染首屏历史（get_history），
+    // 这些都依赖完整 schema 与默认项就绪。若放到后台并行，会与主路径竞争同一连接，
+    // 造成「表/列尚未建立即被查询」的数据竞争或未初始化依赖。故创建/迁移保持同步，
+    // 「不影响首屏」的健康检查与维护另由 spawn_schema_check 异步执行。
     crate::infrastructure::repository::migrations::run_migrations(&conn)?;
-
-    // Initialize default settings
     seed_defaults(&conn)?;
 
     Ok(conn)
+}
+
+/// C4(需求 23.2)：异步执行「不影响首屏」的 schema 健康检查与维护。
+///
+/// 与 `init_db` 的分工：`init_db` 已同步完成首屏与设置加载所依赖的 schema 创建/迁移；
+/// 本函数在后台任务里做不阻塞启动主路径的工作：
+/// 1. 校验关键表是否齐全（检测半迁移/损坏等异常，仅写日志告警，不中断启动）；
+/// 2. 执行 `PRAGMA wal_checkpoint(PASSIVE)` 与 `PRAGMA optimize`，控制 WAL 体积、
+///    刷新查询计划统计，让后续查询更快。
+///
+/// 复用 DbState 的同一共享连接（在调用前已 `manage`），任务内不跨 `.await` 持锁。
+pub fn spawn_schema_check(conn: Arc<Mutex<Connection>>) {
+    tauri::async_runtime::spawn(async move {
+        // 首屏与核心功能依赖的关键表；缺失说明 schema 异常（半迁移/损坏）。
+        const REQUIRED_TABLES: &[&str] = &[
+            "clipboard_history",
+            "settings",
+            "entry_tags",
+            "saved_tags",
+            "schema_migrations",
+        ];
+
+        let Ok(guard) = conn.lock() else {
+            return;
+        };
+
+        for &table in REQUIRED_TABLES {
+            let exists: bool = guard
+                .query_row(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    [table],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+            if !exists {
+                crate::error!("[SCHEMA CHECK] 关键表缺失，schema 可能异常: {}", table);
+            }
+        }
+
+        // WAL 维护与查询计划优化：不影响首屏，放后台执行以控制 WAL 体积、刷新统计。
+        let _ = guard.execute_batch("PRAGMA wal_checkpoint(PASSIVE); PRAGMA optimize;");
+    });
 }
 
 // save_entry removed (migrated to repository)

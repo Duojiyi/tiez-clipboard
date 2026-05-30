@@ -1,5 +1,6 @@
 use std::thread;
 use std::time::Duration;
+use rusqlite::params;
 use tauri::{AppHandle, Manager};
 
 use crate::database::{DbState, ENCRYPT_PREFIX, SENSITIVE_TAGS};
@@ -28,6 +29,9 @@ fn run_alignment(app_handle: AppHandle) {
         format!("({})", parts.join(","))
     };
 
+    // 加密前缀用于在 SQL 内直接判断各字段是否已加密，避免把完整内容读进内存
+    let enc_like = format!("{}%", ENCRYPT_PREFIX);
+
     let mut cursor_ts = i64::MAX;
     let mut cursor_id = i64::MAX;
     let batch_size = 200;
@@ -41,8 +45,14 @@ fn run_alignment(app_handle: AppHandle) {
             }
         };
 
+        // 仅取对齐决策所需的标量（id/时间戳/各加密布尔标志），不再加载 content/preview/html_content 大字符串，
+        // 使消费队列的内存占用与条目内容体积无关、严格有界，避免大文本条目导致的内存激增（需求 22.2）。
         let sql = format!(
-            "SELECT ch.id, ch.timestamp, ch.content, ch.preview, ch.html_content,
+            "SELECT ch.id, ch.timestamp,
+                    COALESCE(ch.content LIKE ?4, 0) AS content_encrypted,
+                    COALESCE(ch.preview LIKE ?4, 0) AS preview_encrypted,
+                    (ch.html_content IS NOT NULL) AS has_html,
+                    COALESCE(ch.html_content LIKE ?4, 0) AS html_encrypted,
                     EXISTS (
                         SELECT 1 FROM entry_tags se
                         WHERE se.entry_id = ch.id
@@ -55,22 +65,35 @@ fn run_alignment(app_handle: AppHandle) {
             sensitive_tags_sql
         );
 
-        let mut batch: Vec<(i64, i64, String, String, Option<String>, bool)> = Vec::new();
+        // 每批仅保留定长标量元组，单批内存上限固定为 batch_size 条 × 几个整型，处理后即被释放
+        let mut batch: Vec<(i64, i64, bool, bool, bool, bool, bool)> = Vec::new();
         {
             let mut stmt = match conn_guard.prepare(&sql) {
                 Ok(s) => s,
                 Err(_) => break,
             };
 
-            let rows = match stmt.query_map([cursor_ts, cursor_id, batch_size], |row| {
-                let id: i64 = row.get(0)?;
-                let ts: i64 = row.get(1)?;
-                let content: String = row.get(2)?;
-                let preview: String = row.get(3)?;
-                let html: Option<String> = row.get(4)?;
-                let is_sensitive: i32 = row.get(5)?;
-                Ok((id, ts, content, preview, html, is_sensitive == 1))
-            }) {
+            let rows = match stmt.query_map(
+                params![cursor_ts, cursor_id, batch_size, enc_like],
+                |row| {
+                    let id: i64 = row.get(0)?;
+                    let ts: i64 = row.get(1)?;
+                    let content_encrypted: bool = row.get(2)?;
+                    let preview_encrypted: bool = row.get(3)?;
+                    let has_html: bool = row.get(4)?;
+                    let html_encrypted: bool = row.get(5)?;
+                    let is_sensitive: i32 = row.get(6)?;
+                    Ok((
+                        id,
+                        ts,
+                        content_encrypted,
+                        preview_encrypted,
+                        has_html,
+                        html_encrypted,
+                        is_sensitive == 1,
+                    ))
+                },
+            ) {
                 Ok(r) => r,
                 Err(_) => break,
             };
@@ -86,30 +109,31 @@ fn run_alignment(app_handle: AppHandle) {
             break;
         }
 
-        for (id, _ts, content, preview, html, is_sensitive) in batch.iter() {
-            let content_encrypted = content.starts_with(ENCRYPT_PREFIX);
-            let preview_encrypted = preview.starts_with(ENCRYPT_PREFIX);
-            let html_encrypted = html
-                .as_ref()
-                .map(|h| h.starts_with(ENCRYPT_PREFIX))
-                .unwrap_or(false);
-
+        for (id, _ts, content_encrypted, preview_encrypted, has_html, html_encrypted, is_sensitive) in
+            batch.iter()
+        {
             if *is_sensitive
-                && (!content_encrypted || !preview_encrypted || (html.is_some() && !html_encrypted))
+                && (!content_encrypted || !preview_encrypted || (*has_html && !html_encrypted))
             {
+                // 敏感但未完全加密：补加密
                 let _ = db_state.repo.encrypt_entry_with_conn(&conn_guard, *id);
-            } else if !*is_sensitive && (content_encrypted || preview_encrypted || html_encrypted) {
+            } else if !*is_sensitive
+                && (*content_encrypted || *preview_encrypted || *html_encrypted)
+            {
+                // 非敏感但残留加密：解密还原
                 let _ = db_state.repo.decrypt_entry_with_conn(&conn_guard, *id);
             }
         }
 
-        if let Some((id, ts, _, _, _, _)) = batch.last() {
+        if let Some((id, ts, ..)) = batch.last() {
             cursor_ts = *ts;
             cursor_id = *id;
         } else {
             break;
         }
 
+        // 处理完即释放本批数据与连接锁，确保内存随批次回收、队列不会无界增长
+        drop(batch);
         drop(conn_guard);
         thread::sleep(Duration::from_millis(50));
     }

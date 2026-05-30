@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Magpie 大列表性能脚手架</title>
+    <style>
+      /* 脚手架样式：固定列表高度以触发虚拟化，保持测量环境稳定 */
+      html, body { margin: 0; padding: 0; height: 100%; font-family: system-ui, sans-serif; }
+      #root { height: 100vh; display: flex; flex-direction: column; }
+      .harness-toolbar { flex: 0 0 auto; padding: 8px; border-bottom: 1px solid #ddd; }
+      .harness-toolbar input { padding: 4px 8px; width: 240px; }
+      .harness-status { margin-left: 12px; font-size: 12px; color: #555; }
+      .history-list-container { flex: 1 1 auto; min-height: 0; }
+      .harness-item { padding: 8px 12px; border-bottom: 1px solid #eee; box-sizing: border-box; }
+      .harness-item .meta { font-size: 11px; color: #888; }
+      .harness-item .content { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/e2e/harness/large-list-harness.tsx"></script>
+  </body>
+</html>

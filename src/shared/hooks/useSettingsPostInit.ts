@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { MutableRefObject } from "react";
 import type { AiProfile, AppCleanupPolicy } from "../../features/settings/types";
-import type { QuickPasteModifier, CloudSyncContentPrefs } from "../../features/app/types";
+import type { QuickPasteModifier, CloudSyncContentPrefs, CardDensity } from "../../features/app/types";
 import { DEFAULT_CLOUD_SYNC_CONTENT_PREFS } from "../../features/app/types";
 
 const DEFAULT_AI_KEY = import.meta.env.VITE_AI_DEFAULT_API_KEY ?? "";
@@ -98,7 +98,9 @@ interface UseSettingsPostInitOptions {
   setSequentialHotkey: (val: string) => void;
   setRichPasteHotkey: (val: string) => void;
   setSearchHotkey: (val: string) => void;
+  setSensitiveHotkey: (val: string) => void;
   setQuickPasteModifier: (val: QuickPasteModifier) => void;
+  setQuickPasteInAppEnabled: (val: boolean) => void;
   setSequentialModeState: (val: boolean) => void;
   setSoundEnabled: (val: boolean) => void;
   setPasteSoundEnabled: (val: boolean) => void;
@@ -115,6 +117,7 @@ interface UseSettingsPostInitOptions {
   setClipboardItemFontSize: (val: number) => void;
   setClipboardTagFontSize: (val: number) => void;
   setEmojiPanelEnabled: (val: boolean) => void;
+  setCardDensity: (val: CardDensity) => void;
   setTagManagerEnabled: (val: boolean) => void;
   setEmojiPanelTab: (val: "emoji" | "favorites") => void;
   setEmojiFavorites: (val: string[]) => void;
@@ -185,7 +188,9 @@ export const useSettingsPostInit = ({
   setSequentialHotkey,
   setRichPasteHotkey,
   setSearchHotkey,
+  setSensitiveHotkey,
   setQuickPasteModifier,
+  setQuickPasteInAppEnabled,
   setSequentialModeState,
   setSoundEnabled,
   setPasteSoundEnabled,
@@ -202,6 +207,7 @@ export const useSettingsPostInit = ({
   setClipboardItemFontSize,
   setClipboardTagFontSize,
   setEmojiPanelEnabled,
+  setCardDensity,
   setTagManagerEnabled,
   setEmojiPanelTab,
   setEmojiFavorites
@@ -241,6 +247,12 @@ export const useSettingsPostInit = ({
     }
     if (settings["app.emoji_panel_enabled"] !== undefined) {
       setEmojiPanelEnabled(settings["app.emoji_panel_enabled"] === "true");
+    }
+    // 卡片密度（V5 / 需求 32）：仅接受 compact/standard/loose，其余值回退默认 standard
+    if (settings["app.card_density"] === "compact" || settings["app.card_density"] === "loose") {
+      setCardDensity(settings["app.card_density"]);
+    } else {
+      setCardDensity("standard");
     }
     if (settings["app.tag_manager_enabled"] !== undefined) {
       setTagManagerEnabled(settings["app.tag_manager_enabled"] !== "false");
@@ -385,7 +397,9 @@ export const useSettingsPostInit = ({
     if (settings["app.sequential_hotkey"]) setSequentialHotkey(settings["app.sequential_hotkey"]);
     if (settings["app.rich_paste_hotkey"]) setRichPasteHotkey(settings["app.rich_paste_hotkey"]);
     if (settings["app.search_hotkey"] !== undefined) setSearchHotkey(settings["app.search_hotkey"]);
+    if (settings["app.sensitive_hotkey"] !== undefined) setSensitiveHotkey(settings["app.sensitive_hotkey"]);
     setQuickPasteModifier(normalizeQuickPasteModifier(settings["app.quick_paste_modifier"]));
+    setQuickPasteInAppEnabled(settings["app.quick_paste_in_app_enabled"] === "true");
     if (settings["app.sequential_mode"] === "true") setSequentialModeState(true);
     if (settings["app.sound_enabled"] === "true") setSoundEnabled(true);
     setPasteSoundEnabled(settings["app.sound_paste_enabled"] !== "false");
@@ -530,6 +544,7 @@ export const useSettingsPostInit = ({
     setSequentialHotkey,
     setRichPasteHotkey,
     setSearchHotkey,
+    setSensitiveHotkey,
     setQuickPasteModifier,
     setSequentialModeState,
     setSoundEnabled,
@@ -547,6 +562,7 @@ export const useSettingsPostInit = ({
     setClipboardItemFontSize,
     setClipboardTagFontSize,
     setEmojiPanelEnabled,
+    setCardDensity,
     setTagManagerEnabled,
     setEmojiPanelTab,
     setEmojiFavorites

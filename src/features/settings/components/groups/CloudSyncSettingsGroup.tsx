@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Cloud } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import type { CloudSyncContentPrefs } from "../../../app/types";
 
@@ -110,6 +110,8 @@ const CloudSyncSettingsGroup = ({
         <div className={`settings-group ${collapsed ? "collapsed" : ""}`}>
             <div className="group-header" onClick={onToggle}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+                    <Cloud size={16} />
                     <h3 style={{ margin: 0 }}>{t("cloud_sync_settings")}</h3>
                     <span
                         style={{
@@ -160,7 +162,7 @@ const CloudSyncSettingsGroup = ({
                             onClick={() => {
                                 invoke("open_content", {
                                     id: 0,
-                                    content: "https://my.feishu.cn/docx/J8LEdTamioQ4aOxBnVYcgnGlnmd?from=from_copylink",
+                                    content: "https://github.com/Duojiyi/magpie/blob/master/docs/cloud-sync-tutorial-webdav.md",
                                     contentType: "url"
                                 });
                             }}

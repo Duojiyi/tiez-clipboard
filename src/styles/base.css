@@ -345,3 +345,22 @@ body.hide-app-border #root {
   -webkit-clip-path: inset(0 round var(--shell-radius));
   clip-path: inset(0 round var(--shell-radius));
 }
+
+/* ==========================================================================
+   A7（需求 9）Mac 同步设置输入框样式兜底 —— 仅新增（additive）规则
+   --------------------------------------------------------------------------
+   目的：Mac 上系统默认输入框样式会渲染成灰色不可填的观感，这里显式声明
+         背景色、文字色并关闭 -webkit-appearance，作为跨平台兜底。
+   约束：
+   - 仅追加规则，不修改/删除任何已有规则，对 Windows 现有外观零影响
+     （这些属性本就是 Windows 下输入框实际呈现的值，显式声明不改变观感）。
+   - 覆盖全部输入框字段（.search-input 及所有文本/密码输入框），不限于同步面板。
+   - 复用现有 CSS 变量 --bg-input / --text-primary（变量定义见本文件 :root）。
+   ========================================================================== */
+.search-input,
+input[type="text"],
+input[type="password"] {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  -webkit-appearance: none;
+}

@@ -1,5 +1,6 @@
 pub mod ai_cmd;
 pub mod clipboard_cmd;
+pub mod diagnostics_cmd;
 pub mod file_cmd;
 pub mod history_cmd;
 pub mod hotkey_cmd;
@@ -12,6 +13,7 @@ pub mod ui_cmd;
 // though tauri usually expects them to be referenced via module path in generate_handler!
 pub use ai_cmd::*;
 pub use clipboard_cmd::*;
+pub use diagnostics_cmd::*;
 pub use file_cmd::*;
 pub use history_cmd::*;
 pub use hotkey_cmd::*;

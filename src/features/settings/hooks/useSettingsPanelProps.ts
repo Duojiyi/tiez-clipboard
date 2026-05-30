@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import SettingsPanel from "../components/SettingsPanel";
 import type { AppState } from "../../app/types";
 import type { Locale } from "../../../shared/types";
+import type { HotkeyScope } from "../../../shared/hooks/useHotkeyConfig";
 
 type SettingsPanelProps = ComponentProps<typeof SettingsPanel>;
 
@@ -16,6 +17,9 @@ interface UseSettingsPanelPropsOptions {
   updateSequentialHotkey: (key: string) => void;
   updateRichPasteHotkey: (key: string) => void;
   updateSearchHotkey: (key: string) => void;
+  updateSensitiveHotkey: (key: string) => void;
+  updateHotkeyScope: (id: "main" | "sequential" | "rich" | "search", scope: HotkeyScope) => void;
+  resetHotkeyScopes: () => void;
   saveAppSetting: (key: string, val: string) => void;
   saveSetting: (key: string, val: string) => void;
   saveMqtt: (key: string, val: string) => void;
@@ -38,6 +42,9 @@ export const useSettingsPanelProps = ({
   updateSequentialHotkey,
   updateRichPasteHotkey,
   updateSearchHotkey,
+  updateSensitiveHotkey,
+  updateHotkeyScope,
+  resetHotkeyScopes,
   saveAppSetting,
   saveSetting,
   saveMqtt,
@@ -167,6 +174,9 @@ export const useSettingsPanelProps = ({
     setIsRecordingSequential,
     setIsRecordingRich,
     setIsRecordingSearch,
+    sensitiveHotkey,
+    isRecordingSensitive,
+    setIsRecordingSensitive,
     setPrivacyProtection,
     setShowHotkeyHint,
     setIsRecording,
@@ -185,6 +195,8 @@ export const useSettingsPanelProps = ({
     setClipboardTagFontSize,
     emojiPanelEnabled,
     setEmojiPanelEnabled,
+    cardDensity,
+    setCardDensity,
     tagManagerEnabled,
     setTagManagerEnabled,
     setMqttEnabled,
@@ -228,7 +240,9 @@ export const useSettingsPanelProps = ({
     aiAssignedProfileMouthpiece,
     setAiAssignedProfileMouthpiece,
     aiAssignedProfileTranslate,
-    setAiAssignedProfileTranslate
+    setAiAssignedProfileTranslate,
+    quickPasteInAppEnabled,
+    setQuickPasteInAppEnabled
   } = state;
 
   return {
@@ -236,6 +250,8 @@ export const useSettingsPanelProps = ({
     theme,
     language,
     colorMode,
+    quickPasteInAppEnabled,
+    setQuickPasteInAppEnabled,
     collapsedGroups,
     settingsSubpage,
     autoStart,
@@ -359,6 +375,12 @@ export const useSettingsPanelProps = ({
     updateRichPasteHotkey,
     setIsRecordingSearch,
     updateSearchHotkey,
+    sensitiveHotkey,
+    isRecordingSensitive,
+    setIsRecordingSensitive,
+    updateSensitiveHotkey,
+    updateHotkeyScope,
+    resetHotkeyScopes,
     setPrivacyProtection,
     setShowHotkeyHint,
     setIsRecording,
@@ -379,6 +401,8 @@ export const useSettingsPanelProps = ({
     setClipboardTagFontSize,
     emojiPanelEnabled,
     setEmojiPanelEnabled,
+    cardDensity,
+    setCardDensity,
     tagManagerEnabled,
     setTagManagerEnabled,
     checkHotkeyConflict,

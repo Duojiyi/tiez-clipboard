@@ -8,6 +8,8 @@ export type InstalledAppOption = { label: string; value: string };
 export type DefaultAppsMap = Record<string, string>;
 export type QuickPasteModifier = "disabled" | "ctrl" | "alt" | "shift" | "win";
 export type SettingsSubpage = "home" | "advanced" | "theme-store";
+/** 卡片密度三档：紧凑 / 标准 / 宽松（V5 / 需求 32），存于 app.card_density，默认 standard */
+export type CardDensity = "compact" | "standard" | "loose";
 
 export type CloudSyncContentPrefs = {
   text: boolean;
@@ -86,8 +88,12 @@ export interface AppState {
   setRichPasteHotkey: StateSetter<string>;
   searchHotkey: string;
   setSearchHotkey: StateSetter<string>;
+  sensitiveHotkey: string;
+  setSensitiveHotkey: StateSetter<string>;
   quickPasteModifier: QuickPasteModifier;
   setQuickPasteModifier: StateSetter<QuickPasteModifier>;
+  quickPasteInAppEnabled: boolean;
+  setQuickPasteInAppEnabled: StateSetter<boolean>;
   sequentialMode: boolean;
   setSequentialModeState: StateSetter<boolean>;
   isRecording: boolean;
@@ -98,6 +104,8 @@ export interface AppState {
   setIsRecordingRich: StateSetter<boolean>;
   isRecordingSearch: boolean;
   setIsRecordingSearch: StateSetter<boolean>;
+  isRecordingSensitive: boolean;
+  setIsRecordingSensitive: StateSetter<boolean>;
   deleteAfterPaste: boolean;
   setDeleteAfterPaste: StateSetter<boolean>;
   moveToTopAfterPaste: boolean;
@@ -145,6 +153,8 @@ export interface AppState {
 
   compactMode: boolean;
   setCompactMode: StateSetter<boolean>;
+  cardDensity: CardDensity;
+  setCardDensity: StateSetter<CardDensity>;
   clipboardItemFontSize: number;
   setClipboardItemFontSize: StateSetter<number>;
   clipboardTagFontSize: number;

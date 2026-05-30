@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode, CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, message } from "@tauri-apps/plugin-dialog";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, X, Palette } from "lucide-react";
 import {
     THEMES,
     getThemeLabel,
@@ -96,7 +96,11 @@ const AppearanceSettingsGroup = ({
     return (
     <div className={`settings-group ${collapsed ? 'collapsed' : ''}`}>
         <div className="group-header" onClick={onToggle}>
-            <h3 style={{ margin: 0 }}>{t('appearance_settings')}</h3>
+            {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Palette size={16} />
+                <h3 style={{ margin: 0 }}>{t('appearance_settings')}</h3>
+            </div>
             {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </div>
         {!collapsed && (

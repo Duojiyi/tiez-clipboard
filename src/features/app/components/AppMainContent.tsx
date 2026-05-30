@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, RefObject, ReactNode } from "react";
 import { motion, Reorder, useDragControls } from "framer-motion";
 import type { DragControls } from "framer-motion";
-import { ArrowUp, Clipboard } from "lucide-react";
+import { ArrowUp, Clipboard, SearchX, Tags } from "lucide-react";
 import FileTransferChatView from "../../file-transfer/components/FileTransferChatView";
 import SettingsPanel from "../../settings/components/SettingsPanel";
 import TagManager from "../../tag/components/TagManager";
 import EmojiPanel from "../../emoji/components/EmojiPanel";
 import { VirtualClipboardList } from "../../clipboard/components/VirtualClipboardList";
 import type { ClipboardEntry } from "../../../shared/types";
+import type { CardDensity } from "../types";
 import type { VirtualClipboardListHandle } from "../../clipboard/types";
 
 type SettingsPanelProps = ComponentProps<typeof SettingsPanel>;
@@ -40,6 +41,7 @@ interface AppMainContentProps {
   pinnedItems: ClipboardEntry[];
   unpinnedItems: ClipboardEntry[];
   compactMode: boolean;
+  cardDensity: CardDensity;
   selectedIndex: number;
   isKeyboardMode: boolean;
   virtualListRef: RefObject<VirtualClipboardListHandle | null>;
@@ -113,6 +115,7 @@ const AppMainContent = ({
   pinnedItems,
   unpinnedItems,
   compactMode,
+  cardDensity,
   selectedIndex,
   isKeyboardMode,
   virtualListRef,
@@ -254,26 +257,41 @@ const AppMainContent = ({
   }
 
   if (filteredHistory.length === 0) {
+    // 三种空状态分别配中英文文案 + lucide 图标（需求 28.1/28.2/28.3）：
+    // 1) 标签筛选下无条目：search 以 "tag:" 开头（来自标签下拉，见 AppHeader）
+    // 2) 搜索无结果：有普通搜索词
+    // 3) 历史为空（全新）：无任何搜索词
+    const isTagFilter = search.startsWith("tag:");
+    const isSearching = search.length > 0 && !isTagFilter;
+
+    let Icon = Clipboard;
+    let title = t("empty_title");
+    let desc = t("empty_desc");
+
+    if (isTagFilter) {
+      Icon = Tags;
+      title = t("empty_tag_title");
+      desc = t("empty_tag_desc");
+    } else if (isSearching) {
+      Icon = SearchX;
+      title = t("no_records");
+      desc = t("empty_search_desc");
+    }
+
     return (
       <div className="empty-state">
-        <Clipboard size={40} opacity={0.2} style={{ marginBottom: "12px" }} />
-        {search ? (
-          <p>{t("no_records")}</p>
-        ) : (
-          <>
-            <p
-              style={{
-                fontSize: "15px",
-                fontWeight: "bold",
-                color: "var(--text-primary)",
-                marginBottom: "4px"
-              }}
-            >
-              {t("empty_title")}
-            </p>
-            <p style={{ fontSize: "12px", opacity: 0.6 }}>{t("empty_desc")}</p>
-          </>
-        )}
+        <Icon size={40} opacity={0.2} style={{ marginBottom: "12px" }} />
+        <p
+          style={{
+            fontSize: "15px",
+            fontWeight: "bold",
+            color: "var(--text-primary)",
+            marginBottom: "4px"
+          }}
+        >
+          {title}
+        </p>
+        <p style={{ fontSize: "12px", opacity: 0.6 }}>{desc}</p>
       </div>
     );
   }
@@ -286,6 +304,7 @@ const AppMainContent = ({
             ref={virtualListRef}
             items={unpinnedItems}
             compactMode={compactMode}
+            cardDensity={cardDensity}
             selectedIndex={selectedIndex - pinnedItems.length}
             isKeyboardMode={isKeyboardMode}
             header={

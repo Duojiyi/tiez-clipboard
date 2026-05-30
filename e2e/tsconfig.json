@@ -1,0 +1,17 @@
+{
+  // e2e 测试与脚手架的独立类型检查配置，不参与主构建（tsconfig.json 仅 include src）。
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

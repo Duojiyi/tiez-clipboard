@@ -46,6 +46,7 @@ import { useAnnouncements } from "./shared/hooks/useAnnouncements";
 import { useOverlays } from "./shared/hooks/useOverlays";
 import { useAutoUpdate } from "./shared/hooks/useAutoUpdate";
 import UpdateDialog from "./shared/components/UpdateDialog";
+import FloatingTagInputOverlay from "./features/tag/components/FloatingTagInputOverlay";
 import type { ClipboardEntry } from "./shared/types";
 import type { QuickPasteHint, VirtualClipboardListHandle } from "./features/clipboard/types";
 
@@ -186,8 +187,12 @@ const App = () => {
     setRichPasteHotkey,
     searchHotkey,
     setSearchHotkey,
+    sensitiveHotkey,
+    setSensitiveHotkey,
     quickPasteModifier,
     setQuickPasteModifier,
+    quickPasteInAppEnabled,
+    setQuickPasteInAppEnabled,
     sequentialMode,
     setSequentialModeState,
     isRecording,
@@ -198,6 +203,8 @@ const App = () => {
     setIsRecordingRich,
     isRecordingSearch,
     setIsRecordingSearch,
+    isRecordingSensitive,
+    setIsRecordingSensitive,
     deleteAfterPaste,
     setDeleteAfterPaste,
     moveToTopAfterPaste,
@@ -240,6 +247,8 @@ const App = () => {
 
     compactMode,
     setCompactMode,
+    cardDensity,
+    setCardDensity,
     clipboardItemFontSize,
     setClipboardItemFontSize,
     clipboardTagFontSize,
@@ -347,6 +356,7 @@ const App = () => {
     version: updateVersion,
     notes: updateNotes,
     downloadProgress: updateProgress,
+    errorKey: updateErrorKey,
     onStartDownload,
     onApplyUpdate,
     onClose: closeUpdateDialog,
@@ -570,6 +580,7 @@ const App = () => {
     setClipboardItemFontSize,
     setClipboardTagFontSize,
     setEmojiPanelEnabled,
+    setCardDensity,
     setTagManagerEnabled,
     setEmojiPanelTab,
     setEmojiFavorites,
@@ -632,7 +643,9 @@ const App = () => {
     setSequentialHotkey,
     setRichPasteHotkey,
     setSearchHotkey,
+    setSensitiveHotkey,
     setQuickPasteModifier,
+    setQuickPasteInAppEnabled,
     setSequentialModeState,
     setSoundEnabled,
     setPasteSoundEnabled,
@@ -716,6 +729,7 @@ const App = () => {
     colorMode,
 
     compactMode,
+    cardDensity,
     settingsLoaded,
     clipboardItemFontSize,
     clipboardTagFontSize,
@@ -863,7 +877,10 @@ const App = () => {
     updateHotkey,
     updateSequentialHotkey,
     updateRichPasteHotkey,
-    updateSearchHotkey
+    updateSearchHotkey,
+    updateSensitiveHotkey,
+    updateHotkeyScope,
+    resetHotkeyScopes
   } =
     useHotkeyConfig({
       hotkey,
@@ -874,6 +891,8 @@ const App = () => {
       setRichPasteHotkey,
       searchHotkey,
       setSearchHotkey,
+      sensitiveHotkey,
+      setSensitiveHotkey,
       sequentialMode,
       isRecording,
       setIsRecording,
@@ -883,6 +902,8 @@ const App = () => {
       setIsRecordingRich,
       isRecordingSearch,
       setIsRecordingSearch,
+      isRecordingSensitive,
+      setIsRecordingSensitive,
       saveAppSetting,
       t,
       pushToast
@@ -957,7 +978,7 @@ const App = () => {
     virtualListRef
   });
 
-  useKeyboardNavigation({
+  const { floatingTagState, submitFloatingTag, closeFloatingTag } = useKeyboardNavigation({
     filteredHistory,
     selectedIndex,
     setSelectedIndex,
@@ -969,9 +990,12 @@ const App = () => {
     editingTagsId,
     arrowKeySelection,
     richPasteHotkey,
+    sensitiveHotkey,
+    quickPasteInAppEnabled,
     searchInputRef,
     copyToClipboard,
-    setSearch
+    setSearch,
+    handleUpdateTags
   });
 
 
@@ -1022,6 +1046,9 @@ const App = () => {
     updateSequentialHotkey,
     updateRichPasteHotkey,
     updateSearchHotkey,
+    updateSensitiveHotkey,
+    updateHotkeyScope,
+    resetHotkeyScopes,
     saveAppSetting,
     saveSetting,
     saveMqtt,
@@ -1106,6 +1133,7 @@ const App = () => {
           pinnedItems={pinnedItems}
           unpinnedItems={unpinnedItems}
           compactMode={compactMode}
+          cardDensity={cardDensity}
           selectedIndex={selectedIndex}
           isKeyboardMode={isKeyboardMode}
           virtualListRef={virtualListRef}
@@ -1139,9 +1167,22 @@ const App = () => {
         notes={updateNotes}
         downloadProgress={updateProgress}
         status={updateStatus}
+        errorMessage={t(updateErrorKey)}
         onUpdate={updateStatus === "ready" ? onApplyUpdate : onStartDownload}
         onClose={closeUpdateDialog}
       />
+
+      {floatingTagState && (
+        <FloatingTagInputOverlay
+          anchorId={floatingTagState.anchorId}
+          history={filteredHistory}
+          t={t}
+          theme={theme}
+          tagColors={tagColors}
+          onSubmit={submitFloatingTag}
+          onClose={closeFloatingTag}
+        />
+      )}
     </div >
   );
 }

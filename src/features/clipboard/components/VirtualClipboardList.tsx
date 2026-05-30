@@ -3,6 +3,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import type { ListRange } from 'react-virtuoso';
 import type { ClipboardEntry } from "../../../shared/types";
 import type { VirtualClipboardListHandle, VirtualClipboardListProps } from "../types";
+import { densityListKey } from "../lib/cardDensity";
 
 type VirtuosoListContext = {
     header?: React.ReactNode;
@@ -45,11 +46,14 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
             isKeyboardMode,
             onScroll,
             compactMode,
+            cardDensity,
             header
         } = props;
 
         const virtuosoRef = useRef<VirtuosoHandle>(null);
         const visibleRangeRef = useRef<ListRange | null>(null);
+        // 记录当前滚动位置：用于判断 wheel 事件是否应停止冒泡（见下方 handleWheel）
+        const scrollTopRef = useRef(0);
         useImperativeHandle(ref, () => ({
             scrollToItem: (index: number) => {
                 virtuosoRef.current?.scrollIntoView({
@@ -68,6 +72,31 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
                 // Not needed with Virtuoso as it handles dynamic heights automatically
             }
         }));
+
+        // 测试钩子：仅当注入测试标志 window.__MAGPIE_TEST__ 时，向全局暴露虚拟列表句柄，
+        // 供大列表性能脚手架（C2 / 需求 21）做确定性的滚动定位与条目计数。
+        // 生产环境从不设置该标志，effect 直接 return，对生产行为零影响。
+        React.useEffect(() => {
+            if (typeof window === 'undefined') return;
+            const w = window as unknown as {
+                __MAGPIE_TEST__?: boolean;
+                __magpieVirtualList?: {
+                    scrollToIndex: (index: number, align?: 'start' | 'center' | 'end') => void;
+                    scrollTo: (top: number) => void;
+                    getItemCount: () => number;
+                };
+            };
+            if (!w.__MAGPIE_TEST__) return;
+            w.__magpieVirtualList = {
+                scrollToIndex: (index, align = 'center') =>
+                    virtuosoRef.current?.scrollToIndex({ index, align, behavior: 'auto' }),
+                scrollTo: (top) => virtuosoRef.current?.scrollTo({ top, behavior: 'auto' }),
+                getItemCount: () => items.length,
+            };
+            return () => {
+                delete w.__magpieVirtualList;
+            };
+        }, [items.length]);
 
         // Keep keyboard selection visible even when the item is only in overscan
         React.useEffect(() => {
@@ -106,8 +135,19 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
 
         // Handle scroll events
         const handleScroll = useCallback((scrollTop: number) => {
+            scrollTopRef.current = scrollTop;
             onScroll?.(scrollTop);
         }, [onScroll]);
+
+        // 滚轮事件处理（U3 / 需求 12.1、12.2）
+        // 固定窗口模式下后端钩子已把滚轮转发给本 webview，事件会落到可滚动的 Virtuoso scroller 上。
+        // 这里在列表“已滚离顶部”时阻止 wheel 冒泡，避免被上层 <main> 的 handleMainWheel
+        // 误处理（其仅在列表顶部用于唤出/收起搜索栏）；列表处于顶部时仍放行冒泡以保留搜索栏显隐手势。
+        const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+            if (scrollTopRef.current > 0) {
+                e.stopPropagation();
+            }
+        }, []);
 
         // Handle end reached for infinite loading
         const handleEndReached = useCallback(() => {
@@ -141,8 +181,11 @@ const VirtualClipboardList = React.forwardRef<VirtualClipboardListHandle, Virtua
         }), [header, hasMore, isLoading]);
 
         return (
-            <div className="virtual-list-wrapper" style={{ height: '100%', width: '100%' }}>
+            <div className="virtual-list-wrapper" style={{ height: '100%', width: '100%' }} onWheel={handleWheel}>
                 <Virtuoso
+                    // 密度切换时通过 key 变化强制重挂载 Virtuoso，触发行高全量重算（V5 / 需求 32.3）。
+                    // Virtuoso 会缓存已测量的行高，仅靠 CSS 改变高度不会刷新缓存的偏移；重挂载可保证渲染正确。
+                    key={densityListKey(cardDensity, !!compactMode)}
                     ref={virtuosoRef}
                     data={items}
                     itemContent={itemContent}

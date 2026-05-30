@@ -46,5 +46,13 @@ conflicts.txt
 git_graph.txt
 git_log_out.txt
 
+# Test / build scratch outputs
+test-results/
+playwright-report/
+src-tauri/check_out.txt
+src-tauri/test_out.txt
+*_check.log
+build_*.log
+
 # Sub-projects
 mobile-app/

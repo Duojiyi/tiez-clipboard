@@ -1,6 +1,6 @@
 <p align="left">
   <img src="docs/images/logo.png" width="32" vertical-align="middle" />
-  <b>让碎片化信息轻松流转的剪贴板工具</b>
+  <b>轻量信息中枢 —— 让碎片化信息轻松流转</b>
 </p>
 
 ---
@@ -21,11 +21,13 @@
 
 ## 关于本项目
 
-**Magpie**（中文：喜鹊）是一款本地优先、注重隐私的 Windows 剪贴板增强工具。
+**Magpie**（中文：喜鹊）是一款本地优先、注重隐私的 Windows **轻量信息中枢**，以高速剪贴板内核为基础。
+
+它从剪贴板工具起步，正逐步成长为一个让碎片信息汇聚流转的安静角落——你复制、同步、打标签、再回看的内容都在这里交汇。采集文字和图片只是入口，Magpie 把你零散的内容收纳整齐、随手可取，让需要的那一条内容始终只差一个快捷键。
 
 本仓库基于 [`jimuzhe/tiez-clipboard`](https://github.com/jimuzhe/tiez-clipboard) 在 GPL-3.0 协议下二次开发，自 v0.4.0 起以 Magpie 命名独立维护。包含若干上游未合并的 Bug 修复、隐私改进与体验优化，详见 [CHANGELOG](./CHANGELOG.md)。
 
-> 喜鹊有"收集闪亮东西"的文化形象，恰好对应一个剪贴板工具的本质——把你需要的零散内容收起来，需要时随手取出。
+> 喜鹊有"收集闪亮东西"的文化形象，恰好对应一个信息中枢的本质——把你需要的零散内容收起来，需要时随手取出。
 
 ---
 
@@ -33,14 +35,14 @@
 
 ## 主题展示
 
-  <sub>说明：以下主题截图沿用自上游 `TieZ` 仓库，标题栏仍显示老名字。视觉效果（Mica、Acrylic、便利贴风格等）与 Magpie 完全一致。新版截图计划在 v0.4.2 UI 升级时同步替换。</sub>
+  <sub>说明：以下为新版 Magpie v0.4.x 主题截图的占位图（不再出现 TieZ 标题栏）。待新版截图拍摄完成后将替换对应图片文件；视觉效果（Mica、Acrylic、便利贴风格等）即为 Magpie 当前实际呈现。</sub>
 
   <table>
     <tr>
-      <td align="center"><b>极简毛玻璃</b><br><img src="docs/images/毛玻璃.png" width="220" /></td>
-      <td align="center"><b>笔记本风格</b><br><img src="docs/images/书.png" width="220" /></td>
-      <td align="center"><b>便利贴风格</b><br><img src="docs/images/便利贴.png" width="220" /></td>
-      <td align="center"><b>3D 动感</b><br><img src="docs/images/3d.png" width="220" /></td>
+      <td align="center"><b>极简毛玻璃</b><br><img src="docs/images/theme-frosted-glass.png" width="220" /></td>
+      <td align="center"><b>笔记本风格</b><br><img src="docs/images/theme-notebook.png" width="220" /></td>
+      <td align="center"><b>便利贴风格</b><br><img src="docs/images/theme-sticky-note.png" width="220" /></td>
+      <td align="center"><b>3D 动感</b><br><img src="docs/images/theme-3d.png" width="220" /></td>
     </tr>
   </table>
 </div>

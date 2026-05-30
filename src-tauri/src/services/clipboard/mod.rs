@@ -90,7 +90,8 @@ fn read_clipboard_text_fresh() -> Option<String> {
     Clipboard::new()
         .ok()
         .and_then(|mut clipboard| clipboard.get_text().ok())
-        .filter(|text| !text.trim().is_empty())
+        // 仅按原始长度判空：纯空白内容（原始长度 > 0）视为有效内容，不再用 trim 丢弃
+        .filter(|text| !is_empty_clipboard_content(text))
 }
 
 fn read_clipboard_image_once(
@@ -989,7 +990,11 @@ pub fn start_clipboard_monitor(app_handle: AppHandle) {
         if !handled {
             if let Some(text) = read_clipboard_text_once(&mut clipboard, &mut cached_text) {
                 let normalized_text = normalize_clipboard_plain_text(&text);
-                if !normalized_text.trim().is_empty() {
+                // 按原始长度判空（与 pipeline、read_clipboard_text_fresh 保持一致，需求 10.2/10.4）：
+                // 仅当捕获到的原始文本本身为空（长度 0）才丢弃；纯空白内容（空格/Tab/换行，
+                // 原始长度 > 0）视为有效内容并写入历史，不再用 trim 后的结果判空。
+                // 判空作用于保真原始文本 text；存储与去重仍沿用 normalized_text，保持既有逻辑不变。
+                if !is_empty_clipboard_content(&text) {
                     let mut hasher = std::collections::hash_map::DefaultHasher::new();
                     use std::hash::{Hash, Hasher};
                     normalized_text.hash(&mut hasher);
@@ -1110,5 +1115,53 @@ mod tests {
     #[test]
     fn file_capture_follows_setting_when_enabled() {
         assert!(should_capture_file_entries(true));
+    }
+}
+
+// Feature: magpie-v0-4-1, Property 1: 捕获保真往返
+#[cfg(test)]
+mod property_1_capture_roundtrip {
+    use super::is_empty_clipboard_content;
+    use proptest::prelude::*;
+
+    /// 模拟剪贴板文本捕获的纯逻辑部分，与 `read_clipboard_text_fresh` 完全一致：
+    /// 读取到的文本仅按原始长度判空过滤，过滤通过时原样透传、不做任何修改。
+    /// （真实函数依赖系统剪贴板，无法在单元测试中访问，故对其纯逻辑建模以验证捕获保真。）
+    fn simulate_capture(raw: &str) -> Option<String> {
+        Some(raw.to_string()).filter(|text| !is_empty_clipboard_content(text))
+    }
+
+    /// 生成含任意前导/内部/尾部空白（空格、Tab、换行、回车）的非空文本，
+    /// 同时混入任意字符，覆盖捕获保真所需的输入空间。
+    fn text_with_arbitrary_whitespace() -> impl Strategy<Value = String> {
+        proptest::collection::vec(
+            prop_oneof![
+                Just(' '),
+                Just('\t'),
+                Just('\n'),
+                Just('\r'),
+                Just('代'),
+                any::<char>(),
+            ],
+            1..40usize,
+        )
+        .prop_map(|chars| chars.into_iter().collect::<String>())
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+        #[test]
+        fn 捕获保真往返(raw in text_with_arbitrary_whitespace()) {
+            // 由生成策略保证长度 >= 1，原始文本必非空
+            prop_assume!(!raw.is_empty());
+            let captured = simulate_capture(&raw);
+            // 非空原始文本必被捕获，且读回的字符序列与原始文本逐字符完全一致（不被修改）
+            prop_assert_eq!(
+                captured.as_deref(),
+                Some(raw.as_str()),
+                "捕获写入历史后读回的内容必须与原始文本逐字符完全一致：raw={:?}",
+                raw
+            );
+        }
     }
 }

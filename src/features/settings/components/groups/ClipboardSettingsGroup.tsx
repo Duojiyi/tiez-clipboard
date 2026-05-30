@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { emit } from "@tauri-apps/api/event";
+import { ChevronDown, ChevronRight, RotateCcw, Clipboard } from "lucide-react";
 import { getHotkeyDisplayTokens } from "../../../../shared/lib/hotkeyDisplay";
 import { isMacPlatform } from "../../../../shared/lib/platform";
 import type { QuickPasteModifier } from "../../../app/types";
+import type { HotkeyScope } from "../../../../shared/hooks/useHotkeyConfig";
+import {
+    canShowWinVConflictPrompt,
+    dismissWinVConflictForSession,
+} from "../../lib/winVConflictSession";
+
+// 可配置作用域的快捷键 id（与后端 `app.hotkey.scope.<id>` 的 id 对齐，需求 19.5）
+type ScopedHotkeyId = "main" | "sequential" | "rich" | "search";
 
 interface LabelWithHintProps {
     label: string;
@@ -40,8 +49,16 @@ interface ClipboardSettingsGroupProps {
     isRecordingSearch: boolean;
     setIsRecordingSearch: (val: boolean) => void;
     updateSearchHotkey: (key: string) => void;
+    sensitiveHotkey: string;
+    isRecordingSensitive: boolean;
+    setIsRecordingSensitive: (val: boolean) => void;
+    updateSensitiveHotkey: (key: string) => void;
+    updateHotkeyScope: (id: ScopedHotkeyId, scope: HotkeyScope) => void;
+    resetHotkeyScopes: () => void;
     quickPasteModifier: QuickPasteModifier;
     setQuickPasteModifier: (val: QuickPasteModifier) => void;
+    quickPasteInAppEnabled: boolean;
+    setQuickPasteInAppEnabled: (val: boolean) => void;
     deleteAfterPaste: boolean;
     setDeleteAfterPaste: (val: boolean) => void;
     moveToTopAfterPaste: boolean;
@@ -100,6 +117,71 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
     );
     const [maskSettingsOpen, setMaskSettingsOpen] = useState(false);
 
+    // Win+V 接管（仅 Windows，需求 24）
+    const isWindows = !isMacPlatform();
+    const [winVTakeover, setWinVTakeover] = useState(false);
+    // 冲突确认提示的可见性（组件内会话标志由 winVConflictDismissedThisSession 控制是否允许弹出）
+    const [winVConflictPrompt, setWinVConflictPrompt] = useState<string | null>(null);
+
+    // 打开面板时读取注册表反推开关状态（需求 24.5/24.6）
+    useEffect(() => {
+        if (!isWindows) return;
+        invoke<boolean>("is_registry_win_v_optimized")
+            .then((enabled) => setWinVTakeover(enabled))
+            .catch(console.error);
+    }, [isWindows]);
+
+    // 探测占用来源应用名（需求 24.8），命令未注册时静默降级
+    const detectWinVOccupier = async (): Promise<string | null> => {
+        try {
+            return await invoke<string | null>("detect_win_v_occupier");
+        } catch {
+            return null;
+        }
+    };
+
+    // 写入接管设置：成功后中文提示需手动重启资源管理器（需求 24.3）；
+    // 失败且系统占用时弹中文确认提示（需求 24.7），并指明占用来源（需求 24.8）。
+    const applyWinVTakeover = async (enable: boolean) => {
+        try {
+            await invoke<boolean>("trigger_registry_win_v_optimization", { enable });
+            setWinVTakeover(enable);
+            // 持久化用户选择，使重启后启动逻辑按此决定是否接管 Win+V（默认开启）。
+            props.saveAppSetting('use_win_v_shortcut', String(enable));
+            if (enable) {
+                emit("toast", { msg: props.t("win_v_takeover_success"), variant: "success" }).catch(console.error);
+            }
+        } catch (err) {
+            console.error(err);
+            // 注册失败：先探测占用来源
+            const occupier = await detectWinVOccupier();
+            if (occupier) {
+                emit(
+                    "toast",
+                    { msg: props.t("win_v_occupier_detected").replace("{app}", occupier), variant: "error" }
+                ).catch(console.error);
+            } else if (canShowWinVConflictPrompt()) {
+                // 系统占用且本会话未关闭过提示 → 弹出确认
+                setWinVConflictPrompt(props.t("win_v_conflict_prompt"));
+            }
+        }
+    };
+
+    const handleWinVToggle = (next: boolean) => {
+        void applyWinVTakeover(next);
+    };
+
+    const confirmWinVConflict = () => {
+        setWinVConflictPrompt(null);
+        void applyWinVTakeover(true);
+    };
+
+    const dismissWinVConflict = () => {
+        // 同会话内关闭后不再重复弹出（需求 24.7）
+        dismissWinVConflictForSession();
+        setWinVConflictPrompt(null);
+    };
+
     useEffect(() => {
         setPersistentLimitDraft(props.persistentLimit.toString());
     }, [props.persistentLimit, props.persistentLimitEnabled]);
@@ -128,10 +210,52 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
         return <div className="key-cap key-cap-chord">{compactLabel}</div>;
     };
 
+    // 单个快捷键的作用域选择控件（需求 19.5）：从 appSettings 读取当前值，
+    // 缺省按 Global 兜底（与后端 parse_scope 一致，需求 19.4）；
+    // 改动后调用 updateHotkeyScope 持久化并触发即时重新分流（需求 19.9）。
+    const renderScopeSelect = (id: ScopedHotkeyId) => {
+        const current = (props.appSettings[`app.hotkey.scope.${id}`] as HotkeyScope) || "Global";
+        return (
+            <select
+                value={current}
+                onChange={(e) => props.updateHotkeyScope(id, e.target.value as HotkeyScope)}
+                style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-color)',
+                    fontSize: '13px',
+                    minWidth: '120px'
+                }}
+            >
+                <option value="Global">{props.t('hotkey_scope_global')}</option>
+                <option value="InAppOnly">{props.t('hotkey_scope_in_app_only')}</option>
+                <option value="BackgroundOnly">{props.t('hotkey_scope_background_only')}</option>
+            </select>
+        );
+    };
+
+    // 快捷键作用域选择项（标签 + 下拉），紧跟在对应快捷键录制控件之后（需求 19.5）。
+    const renderScopeRow = (id: ScopedHotkeyId) => (
+        <div className="setting-item">
+            <props.LabelWithHint
+                label={props.t('hotkey_scope_label')}
+                hint={props.t('hotkey_scope_hint')}
+                hintKey={`hotkey_scope_${id}`}
+            />
+            {renderScopeSelect(id)}
+        </div>
+    );
+
     return (
         <div className={`settings-group ${props.collapsed ? 'collapsed' : ''}`}>
             <div className="group-header" onClick={props.onToggle}>
-                <h3 style={{ margin: 0 }}>{props.t('clipboard_settings')}</h3>
+                {/* 标题区统一使用 lucide 图标（需求 30.1/30.2） */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Clipboard size={16} />
+                    <h3 style={{ margin: 0 }}>{props.t('clipboard_settings')}</h3>
+                </div>
                 {props.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
             </div>
             {!props.collapsed && (
@@ -319,7 +443,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 if (e.ctrlKey) modifiers.push('Ctrl');
                                 if (e.shiftKey) modifiers.push('Shift');
                                 if (e.altKey) modifiers.push('Alt');
-                                if (e.metaKey) modifiers.push('Command');
+                                if (e.metaKey) modifiers.push('Win');
 
                                 const key = e.key.toUpperCase();
                                 if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(key)) return;
@@ -335,6 +459,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                             )}
                         </div>
                     </div>
+                    {renderScopeRow('rich')}
                     <div className="setting-item">
                         <div className="item-label-group">
                             <span className="item-label">{props.t('search_hotkey_label')}</span>
@@ -364,7 +489,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 if (e.ctrlKey) modifiers.push('Ctrl');
                                 if (e.shiftKey) modifiers.push('Shift');
                                 if (e.altKey) modifiers.push('Alt');
-                                if (e.metaKey) modifiers.push('Command');
+                                if (e.metaKey) modifiers.push('Win');
 
                                 const key = e.key.toUpperCase();
                                 if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(key)) return;
@@ -377,6 +502,55 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 <div className="key-cap" style={{ width: '8em' }}>{props.t('waiting_for_input')}</div>
                             ) : (
                                 renderHotkeyCaps(props.searchHotkey)
+                            )}
+                        </div>
+                    </div>
+                    {renderScopeRow('search')}
+                    {/* 敏感标记快捷键（需求 17.3）：默认 S，可自定义覆盖。
+                        Scope 固定 InAppOnly（仅主面板可见时由 useKeyboardNavigation 的 webview keydown 响应），
+                        因此不提供 Scope 选择行。 */}
+                    <div className="setting-item">
+                        <div className="item-label-group">
+                            <span className="item-label">{props.t('sensitive_hotkey_label')}</span>
+                            <span className="hint">{props.isRecordingSensitive ? props.t('hotkey_recording_esc') : props.t('hotkey_click_hint')}</span>
+                        </div>
+                        <div
+                            className={`key-group ${props.isRecordingSensitive ? 'recording' : ''}`}
+                            onClick={(e) => { props.setIsRecordingSensitive(true); e.currentTarget.focus(); }}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                                if (!props.isRecordingSensitive) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+
+                                if (e.key === 'Escape') {
+                                    props.setIsRecordingSensitive(false);
+                                    return;
+                                }
+
+                                if (e.key === 'Backspace' || e.key === 'Delete') {
+                                    props.updateSensitiveHotkey('');
+                                    props.setIsRecordingSensitive(false);
+                                    return;
+                                }
+
+                                const modifiers = [];
+                                if (e.ctrlKey) modifiers.push('Ctrl');
+                                if (e.shiftKey) modifiers.push('Shift');
+                                if (e.altKey) modifiers.push('Alt');
+                                if (e.metaKey) modifiers.push('Win');
+
+                                const key = e.key.toUpperCase();
+                                if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(key)) return;
+
+                                const newHotkey = [...modifiers, key].join('+');
+                                props.updateSensitiveHotkey(newHotkey);
+                            }}
+                        >
+                            {props.isRecordingSensitive ? (
+                                <div className="key-cap" style={{ width: '8em' }}>{props.t('waiting_for_input')}</div>
+                            ) : (
+                                renderHotkeyCaps(props.sensitiveHotkey)
                             )}
                         </div>
                     </div>
@@ -409,6 +583,30 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 </option>
                             ))}
                         </select>
+                    </div>
+                    {/* 数字快捷粘贴（Ctrl+1~9，InAppOnly）开关（需求 16.1）。
+                        启用后由 useKeyboardNavigation 在主面板可见时响应 Ctrl+1~9，按过滤后可见列表第 N 个粘贴；
+                        粘贴成功后由后端 copy_to_clipboard 隐藏主面板（需求 16.4）。
+                        与旧的 quick_paste_modifier（基于置顶项）并存兼容。 */}
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('quick_paste_in_app_enabled')}
+                            hint={props.t('quick_paste_in_app_enabled_hint')}
+                            hintKey="quick_paste_in_app_enabled"
+                        />
+                        <label className="switch">
+                            <input
+                                className="cb"
+                                type="checkbox"
+                                checked={props.quickPasteInAppEnabled}
+                                onChange={(e) => {
+                                    const val = e.target.checked;
+                                    props.setQuickPasteInAppEnabled(val);
+                                    props.saveAppSetting('quick_paste_in_app_enabled', String(val));
+                                }}
+                            />
+                            <div className="toggle"><div className="left" /><div className="right" /></div>
+                        </label>
                     </div>
                     <div className="setting-item">
                         <props.LabelWithHint
@@ -507,7 +705,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                     if (e.ctrlKey) modifiers.push('Ctrl');
                                     if (e.shiftKey) modifiers.push('Shift');
                                     if (e.altKey) modifiers.push('Alt');
-                                    if (e.metaKey) modifiers.push('Command');
+                                    if (e.metaKey) modifiers.push('Win');
 
                                     const key = e.key.toUpperCase();
                                     if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(key)) return;
@@ -524,6 +722,8 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                             </div>
                         </div>
                     )}
+
+                    {props.sequentialMode && renderScopeRow('sequential')}
 
                     <div className="setting-item">
                         <props.LabelWithHint
@@ -727,7 +927,7 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                                 if (e.ctrlKey) modifiers.push('Ctrl');
                                 if (e.shiftKey) modifiers.push('Shift');
                                 if (e.altKey) modifiers.push('Alt');
-                                if (e.metaKey) modifiers.push('Command');
+                                if (e.metaKey) modifiers.push('Win');
 
                                 const key = e.key.toUpperCase();
                                 if (['CONTROL', 'SHIFT', 'ALT', 'META'].includes(key)) return;
@@ -743,8 +943,83 @@ const ClipboardSettingsGroup = (props: ClipboardSettingsGroupProps) => {
                             )}
                         </div>
                     </div>
+                    {renderScopeRow('main')}
 
-                    {/* macOS cleanup: Removed Win+V Shortcut switch */}
+                    {/* 恢复默认：将所有快捷键作用域还原为默认值（既有快捷键默认 Global，需求 19.6） */}
+                    <div className="setting-item">
+                        <props.LabelWithHint
+                            label={props.t('hotkey_scope_reset_label')}
+                            hint={props.t('hotkey_scope_reset_hint')}
+                            hintKey="hotkey_scope_reset"
+                        />
+                        <button
+                            type="button"
+                            className="btn-icon"
+                            style={{ width: 'auto', fontSize: '12px', height: '28px', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            onClick={() => props.resetHotkeyScopes()}
+                        >
+                            <RotateCcw size={14} />
+                            {props.t('hotkey_scope_reset_button')}
+                        </button>
+                    </div>
+
+                    {/* Win+V 接管开关（仅 Windows，需求 24） */}
+                    {isWindows && (
+                        <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <props.LabelWithHint
+                                    label={props.t('win_v_takeover')}
+                                    hint={props.t('win_v_takeover_hint')}
+                                    hintKey="win_v_takeover"
+                                />
+                                <label className="switch">
+                                    <input
+                                        className="cb"
+                                        type="checkbox"
+                                        checked={winVTakeover}
+                                        onChange={(e) => handleWinVToggle(e.target.checked)}
+                                    />
+                                    <div className="toggle"><div className="left" /><div className="right" /></div>
+                                </label>
+                            </div>
+                            {winVConflictPrompt && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '8px',
+                                        padding: '8px 10px',
+                                        borderRadius: '6px',
+                                        background: 'var(--input-bg)',
+                                        border: '1px solid var(--border-color)'
+                                    }}
+                                >
+                                    <span style={{ fontSize: '12px', color: 'var(--text-primary)', flex: 1 }}>
+                                        {winVConflictPrompt}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                        <button
+                                            type="button"
+                                            className="btn-icon"
+                                            style={{ width: 'auto', fontSize: '11px', height: '26px', padding: '0 12px' }}
+                                            onClick={confirmWinVConflict}
+                                        >
+                                            {props.t('confirm')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn-icon"
+                                            style={{ width: 'auto', fontSize: '11px', height: '26px', padding: '0 12px' }}
+                                            onClick={dismissWinVConflict}
+                                        >
+                                            {props.t('cancel')}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
         </div>

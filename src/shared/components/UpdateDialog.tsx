@@ -11,6 +11,8 @@ interface UpdateDialogProps {
   notes: string;
   downloadProgress: number;
   status: "idle" | "checking" | "downloading" | "ready" | "error";
+  // 更新失败时展示的中文分类文案（DNS/TLS/通用），不暴露原始英文异常
+  errorMessage?: string;
   onUpdate: () => void;
   onClose: () => void;
 }
@@ -21,6 +23,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
   notes,
   downloadProgress,
   status,
+  errorMessage,
   onUpdate,
   onClose,
 }) => {
@@ -65,7 +68,7 @@ const UpdateDialog: React.FC<UpdateDialogProps> = ({
               <div className="update-notes-container custom-scrollbar">
                 <p className="update-notes-text">
                   {status === "error" 
-                    ? "更新过程中遇到了错误。这可能是由于网络原因或系统权限导致，请尝试前往官网手动下载最新版本。"
+                    ? (errorMessage || "更新过程中遇到了错误。这可能是由于网络原因或系统权限导致，请尝试前往官网手动下载最新版本。")
                     : (notes || "在这个版本中，我们带来了一些性能优化和体验改进。")}
                 </p>
               </div>
