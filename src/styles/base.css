@@ -322,8 +322,9 @@ body {
   border-radius: var(--shell-radius);
   overflow: hidden;
   box-shadow: var(--shell-shadow);
-  backdrop-filter: var(--shell-backdrop-filter);
-  -webkit-backdrop-filter: var(--shell-backdrop-filter);
+  /* 玻璃主题（mist/dusk）的模糊交给后端 DWM acrylic 由桌面合成器渲染，
+   * 不在前端 #root 叠加 CSS backdrop-filter——后者会让 WebView 在窗口拖动时
+   * 每帧对整窗实时高斯模糊，造成高速拖动卡顿（0.4.1 mica 即只用 DWM、无 CSS 模糊，拖动流畅）。 */
 }
 
 :root.hide-app-border #root,
