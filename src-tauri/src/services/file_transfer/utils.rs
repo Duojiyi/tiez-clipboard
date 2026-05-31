@@ -96,7 +96,8 @@ pub async fn bind_listener(start_port: u16) -> (tokio::net::TcpListener, u16) {
         match tokio::net::TcpListener::bind(&addr).await {
             Ok(listener) => return (listener, port),
             Err(_) => {
-                if port >= 65535 {
+                // u16::MAX == 65535，再 +1 会溢出；走系统随机端口兜底
+                if port == u16::MAX {
                     if let Ok(listener) = tokio::net::TcpListener::bind("0.0.0.0:0").await {
                         let p = listener.local_addr().map(|a| a.port()).unwrap_or(0);
                         return (listener, p);

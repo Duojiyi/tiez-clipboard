@@ -427,7 +427,10 @@ impl EmojiDropTarget {
     }
 }
 
+// IDropTarget COM trait 方法签名由 trait 固定（裸指针 *mut DROPEFFECT 无法改成 unsafe），
+// 因此整体放行 clippy::not_unsafe_ptr_arg_deref。
 #[allow(non_snake_case)]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl IDropTarget_Impl for EmojiDropTarget_Impl {
     fn DragEnter(
         &self,
